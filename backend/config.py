@@ -14,8 +14,15 @@ class Config:
     MAX_GRID_SIZE = 20
     MIN_PLAYERS_TO_START = 2
 
+    # Test mode
+    TEST_MODE = os.environ.get("TEST_MODE", "true").lower() == "true"
+    TEST_PASSWORD = "clemson-test-2026"
+
 
 class TestConfig(Config):
     """Uses in-memory SQLite for testing."""
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     TESTING = True
+    TEST_MODE = True
+
+    

@@ -15,7 +15,7 @@ games_bp = Blueprint("games", __name__)
 
 @games_bp.route("/games", methods=["POST"])
 def create_game():
-    """Create a new game with optional grid_size."""
+    """Create a new game. Creator auto-joins with turn_order = 0."""
     data = request.get_json() or {}
     grid_size = data.get("grid_size", Config.DEFAULT_GRID_SIZE)
 
@@ -24,8 +24,26 @@ def create_game():
             "error": f"grid_size must be an integer between {Config.MIN_GRID_SIZE} and {Config.MAX_GRID_SIZE}"
         }), 400
 
+    # If creator_id is provided, auto-add them to the game
+    creator_id = data.get("creator_id")
+    if creator_id:
+        creator = Player.query.get(creator_id)
+        if not creator:
+            return jsonify({"error": "Creator not found"}), 404
+
     game = Game(grid_size=grid_size)
     db.session.add(game)
+    db.session.flush()  # Get game ID
+
+    # Auto-join creator if provided
+    if creator_id:
+        game_player = GamePlayer(
+            gameId=game.id,
+            playerId=creator_id,
+            turn_order=0,
+        )
+        db.session.add(game_player)
+
     db.session.commit()
 
     return jsonify(game.to_dict()), 201
@@ -51,20 +69,17 @@ def join_game(game_id):
     player = None
 
     if "playerId" in data:
-        # Join with existing playerId
         player = Player.query.get(data["playerId"])
         if not player:
             return jsonify({"error": "Invalid playerId"}), 403
 
     elif "playerName" in data or "displayName" in data:
-        # Join by name — reuse existing player or create new one
         name = (data.get("playerName") or data.get("displayName", "")).strip()
         if not name:
             return jsonify({"error": "playerName is required"}), 400
 
         player = Player.query.filter_by(displayName=name).first()
         if not player:
-            # Create new player automatically
             player = Player(displayName=name)
             db.session.add(player)
             db.session.flush()
@@ -224,8 +239,10 @@ def get_game(game_id):
         .all()
     )
 
+    # Calculate current_turn_index
+    current_turn_index = None
     players_info = []
-    for gp in game_players:
+    for i, gp in enumerate(game_players):
         player = Player.query.get(gp.playerId)
         cell_count = BoardCell.query.filter_by(
             game_id=game_id, owner_player_id=gp.playerId
@@ -237,6 +254,11 @@ def get_game(game_id):
             "is_eliminated": gp.is_eliminated,
             "cell_count": cell_count,
         })
+        if gp.playerId == game.current_turn_player_id:
+            current_turn_index = i
+
+    # Count active players
+    active_players = sum(1 for gp in game_players if not gp.is_eliminated)
 
     # Get board (only if game has started)
     board = get_board_as_2d_array(game) if game.status != "waiting" else None
@@ -249,8 +271,22 @@ def get_game(game_id):
         "grid_size": game.grid_size,
         "status": game.status,
         "current_turn_player_id": game.current_turn_player_id,
+        "current_turn_index": current_turn_index,
+        "active_players": active_players,
         "winner_id": game.winner_id,
         "players": players_info,
         "board": board,
         "moves": [m.to_dict() for m in moves],
     }), 200
+
+
+@games_bp.route("/games/<int:game_id>/moves", methods=["GET"])
+def get_moves(game_id):
+    """Get chronological move history for a game."""
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    moves = Move.query.filter_by(game_id=game_id).order_by(Move.id).all()
+
+    return jsonify([m.to_dict() for m in moves]), 200
