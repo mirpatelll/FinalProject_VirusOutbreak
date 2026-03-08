@@ -10,11 +10,9 @@ def create_player():
     """Create a new player. Server generates playerId."""
     data = request.get_json(silent=True) or {}
 
-    # Reject if client tries to supply an id
-    if "playerId" in data or "id" in data:
+    if "playerId" in data or "id" in data or "player_id" in data:
         return jsonify({"error": "Client may not supply playerId"}), 400
 
-    # Accept several common field names
     player_name = (
         data.get("playerName")
         or data.get("displayName")
@@ -28,24 +26,20 @@ def create_player():
 
     player_name = player_name.strip()
 
-    # Check for duplicate displayName
     existing = Player.query.filter_by(displayName=player_name).first()
     if existing:
         return jsonify({"error": "displayName already taken"}), 409
 
-    # Server generates playerId
     player = Player(displayName=player_name)
     db.session.add(player)
     db.session.commit()
 
     payload = player.to_dict()
-
-    # Add alias fields to better support autograder/client naming conventions
     payload["id"] = payload.get("playerId")
+    payload["player_id"] = payload.get("playerId")
     payload["username"] = payload.get("displayName")
     payload["name"] = payload.get("displayName")
 
-    # Add fallback stat aliases if not already present
     if "totalGames" not in payload:
         payload["totalGames"] = payload.get("gamesPlayed", 0)
     if "totalWins" not in payload:
@@ -67,6 +61,7 @@ def get_player(player_id):
 
     payload = player.to_dict()
     payload["id"] = payload.get("playerId")
+    payload["player_id"] = payload.get("playerId")
     payload["username"] = payload.get("displayName")
     payload["name"] = payload.get("displayName")
 
