@@ -130,7 +130,7 @@ def join_game(game_id):
     if current_count >= max_players:
         return jsonify({"error": f"Game is full (max {max_players} players)"}), 400
 
-    turn_order = current_count + 1
+    turn_order = current_count
 
     game_player = GamePlayer(
         gameId=game_id,
