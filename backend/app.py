@@ -12,13 +12,15 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Initialize database and create tables
     init_db(app)
 
-    # Register blueprints with /api prefix
-    app.register_blueprint(games_bp, url_prefix="/api")
-    app.register_blueprint(players_bp, url_prefix="/api")
-    app.register_blueprint(system_bp, url_prefix="/api")
+    app.register_blueprint(games_bp)
+    app.register_blueprint(players_bp)
+    app.register_blueprint(system_bp)
+
+    app.register_blueprint(games_bp, url_prefix="/api", name="games_api")
+    app.register_blueprint(players_bp, url_prefix="/api", name="players_api")
+    app.register_blueprint(system_bp, url_prefix="/api", name="system_api")
 
     return app
 
