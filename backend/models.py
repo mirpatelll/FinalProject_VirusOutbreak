@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
@@ -6,16 +5,11 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
-def generate_uuid():
-    """Generate a new UUID string."""
-    return str(uuid.uuid4())
-
-
 class Player(db.Model):
     """Persistent player accounts with lifetime stats."""
     __tablename__ = "players"
 
-    playerId = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    playerId = db.Column(db.Integer, primary_key=True, autoincrement=True)
     displayName = db.Column(db.String(80), unique=True, nullable=False)
     createdAt = db.Column(
         db.String(30),
@@ -27,7 +21,6 @@ class Player(db.Model):
     totalLosses = db.Column(db.Integer, nullable=False, default=0)
     totalMoves = db.Column(db.Integer, nullable=False, default=0)
 
-    # Relationships
     game_players = db.relationship("GamePlayer", back_populates="player", lazy=True)
 
     def to_dict(self):
@@ -49,15 +42,14 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     grid_size = db.Column(db.Integer, nullable=False, default=6)
     status = db.Column(db.String(20), nullable=False, default="waiting")
-    current_turn_player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
-    winner_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
+    current_turn_player_id = db.Column(db.Integer, db.ForeignKey("players.playerId"), nullable=True)
+    winner_id = db.Column(db.Integer, db.ForeignKey("players.playerId"), nullable=True)
     created_at = db.Column(
         db.String(30),
         nullable=False,
         default=lambda: datetime.now(timezone.utc).isoformat(),
     )
 
-    # Relationships
     game_players = db.relationship("GamePlayer", back_populates="game", lazy=True)
     board_cells = db.relationship("BoardCell", back_populates="game", lazy=True)
     moves = db.relationship("Move", back_populates="game", lazy=True, order_by="Move.id")
@@ -80,11 +72,10 @@ class GamePlayer(db.Model):
     __tablename__ = "game_players"
 
     gameId = db.Column(db.Integer, db.ForeignKey("games.id"), primary_key=True)
-    playerId = db.Column(db.String(36), db.ForeignKey("players.playerId"), primary_key=True)
+    playerId = db.Column(db.Integer, db.ForeignKey("players.playerId"), primary_key=True)
     turn_order = db.Column(db.Integer, nullable=False)
     is_eliminated = db.Column(db.Boolean, nullable=False, default=False)
 
-    # Relationships
     game = db.relationship("Game", back_populates="game_players")
     player = db.relationship("Player", back_populates="game_players")
 
@@ -106,9 +97,8 @@ class BoardCell(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
     row = db.Column(db.Integer, nullable=False)
     col = db.Column(db.Integer, nullable=False)
-    owner_player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
+    owner_player_id = db.Column(db.Integer, db.ForeignKey("players.playerId"), nullable=True)
 
-    # Relationships
     game = db.relationship("Game", back_populates="board_cells")
     owner = db.relationship("Player", foreign_keys=[owner_player_id])
 
@@ -128,7 +118,7 @@ class Move(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.playerId"), nullable=False)
     source_row = db.Column(db.Integer, nullable=False)
     source_col = db.Column(db.Integer, nullable=False)
     target_row = db.Column(db.Integer, nullable=False)
@@ -139,7 +129,6 @@ class Move(db.Model):
         default=lambda: datetime.now(timezone.utc).isoformat(),
     )
 
-    # Relationships
     game = db.relationship("Game", back_populates="moves")
     player = db.relationship("Player", foreign_keys=[player_id])
 
@@ -152,4 +141,3 @@ class Move(db.Model):
             "target": [self.target_row, self.target_col],
             "timestamp": self.timestamp,
         }
-
