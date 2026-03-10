@@ -8,18 +8,17 @@ from routes.system import system_bp
 
 
 def create_app(config_class=Config):
-    """Application factory."""
     app = Flask(__name__)
     app.config.from_object(config_class)
 
     init_db(app)
 
-    # Register blueprints without prefix
+    # Register without prefix
     app.register_blueprint(games_bp)
     app.register_blueprint(players_bp)
     app.register_blueprint(system_bp)
 
-    # Register blueprints WITH /api prefix
+    # Register with /api prefix
     app.register_blueprint(games_bp, url_prefix="/api", name="games_api")
     app.register_blueprint(players_bp, url_prefix="/api", name="players_api")
     app.register_blueprint(system_bp, url_prefix="/api", name="system_api")
