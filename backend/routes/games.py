@@ -99,21 +99,18 @@ def join_game(game_id):
             db.session.flush()
 
     existing = GamePlayer.query.filter_by(
-        gameId=game_id, playerId=player.playerId
+        gameId=game_id, playerId=player.player_id
     ).first()
     if existing:
         return jsonify({"error": "Player already joined this game"}), 400
 
     current_count = GamePlayer.query.filter_by(gameId=game_id).count()
     
-    # If this is the first player joining an empty game, start at turn_order=1
-    # (turn_order=0 is reserved for the implicit creator or system player)
-    # For subsequent players, increment normally
-    turn_order = max(1, current_count + 1) if current_count == 0 else current_count + 1
+    turn_order = current_count + 1
 
     game_player = GamePlayer(
         gameId=game_id,
-        playerId=player.playerId,
+        playerId=player.player_id,
         turn_order=turn_order,
     )
     db.session.add(game_player)
@@ -123,8 +120,8 @@ def join_game(game_id):
     result["displayName"] = player.displayName
     result["game_id"] = game_id
     result["gameId"] = game_id
-    result["player_id"] = player.playerId
-    result["playerId"] = player.playerId
+    result["player_id"] = player.player_id
+    result["playerId"] = player.player_id
     result["username"] = player.displayName
     return jsonify(result), 200
 
@@ -169,6 +166,7 @@ def start_game(game_id):
 
     payload = {
         "id": game.id,
+        "game_id": game.id,
         "gameId": game.id,
         "status": game.status,
         "grid_size": game.grid_size,
@@ -334,6 +332,7 @@ def get_game(game_id):
 
     payload = {
         "id": game.id,
+        "game_id": game.id,
         "gameId": game.id,
         "grid_size": game.grid_size,
         "status": game.status,

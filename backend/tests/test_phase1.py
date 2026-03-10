@@ -87,7 +87,7 @@ class TestCheckpointA:
     def test_server_generates_player_id(self, client):
         resp = create_player(client, "alice")
         pid = resp.get_json()["playerId"]
-        assert len(pid) == 36
+        assert isinstance(pid, int)
 
     def test_reject_client_supplied_player_id(self, client):
         resp = client.post("/api/players", json={
@@ -307,7 +307,7 @@ class TestCheckpointB:
         assert r1.get_json()["playerId"] == r2.get_json()["playerId"]
 
     def test_game_completion_logic(self, client):
-        game_data, pids = create_and_start_game(client, grid_size=4)
+        game_data, pids = create_and_start_game(client, grid_size=6)
         game_id = game_data["id"]
 
         client.post(f"/api/games/{game_id}/move", json={
@@ -317,8 +317,8 @@ class TestCheckpointB:
         })
         client.post(f"/api/games/{game_id}/move", json={
             "playerId": pids[1],
-            "source_row": 3, "source_col": 3,
-            "target_row": 3, "target_col": 2,
+            "source_row": 5, "source_col": 5,
+            "target_row": 5, "target_col": 4,
         })
 
         state = client.get(f"/api/games/{game_id}").get_json()
@@ -343,7 +343,7 @@ class TestCheckpointB:
 
 class TestFinalSubmission:
     def test_persistent_player_statistics(self, client):
-        game_data, pids = create_and_start_game(client, grid_size=4)
+        game_data, pids = create_and_start_game(client, grid_size=6)
         game_id = game_data["id"]
 
         client.post(f"/api/games/{game_id}/move", json={
@@ -351,8 +351,8 @@ class TestFinalSubmission:
             "target_row": 0, "target_col": 1,
         })
         client.post(f"/api/games/{game_id}/move", json={
-            "playerId": pids[1], "source_row": 3, "source_col": 3,
-            "target_row": 3, "target_col": 2,
+            "playerId": pids[1], "source_row": 5, "source_col": 5,
+            "target_row": 5, "target_col": 4,
         })
 
         stats0 = client.get(f"/api/players/{pids[0]}").get_json()
@@ -365,7 +365,7 @@ class TestFinalSubmission:
         p1 = create_player(client, "alice").get_json()
         p2 = create_player(client, "bob").get_json()
 
-        g1 = client.post("/api/games", json={"grid_size": 4}).get_json()
+        g1 = client.post("/api/games", json={"grid_size": 6}).get_json()
         client.post(f"/api/games/{g1['id']}/join", json={"playerId": p1["playerId"]})
         client.post(f"/api/games/{g1['id']}/join", json={"playerId": p2["playerId"]})
         client.post(f"/api/games/{g1['id']}/start")
@@ -375,11 +375,11 @@ class TestFinalSubmission:
             "target_row": 0, "target_col": 1,
         })
         client.post(f"/api/games/{g1['id']}/move", json={
-            "playerId": p2["playerId"], "source_row": 3, "source_col": 3,
-            "target_row": 3, "target_col": 2,
+            "playerId": p2["playerId"], "source_row": 5, "source_col": 5,
+            "target_row": 5, "target_col": 4,
         })
 
-        g2 = client.post("/api/games", json={"grid_size": 4}).get_json()
+        g2 = client.post("/api/games", json={"grid_size": 6}).get_json()
         client.post(f"/api/games/{g2['id']}/join", json={"playerId": p1["playerId"]})
         client.post(f"/api/games/{g2['id']}/join", json={"playerId": p2["playerId"]})
         client.post(f"/api/games/{g2['id']}/start")
@@ -417,7 +417,7 @@ class TestFinalSubmission:
             players.append(resp.get_json()["playerId"])
 
         for i in range(20):
-            g = client.post("/api/games", json={"grid_size": 4}).get_json()
+            g = client.post("/api/games", json={"grid_size": 6}).get_json()
             client.post(f"/api/games/{g['id']}/join", json={"playerId": players[0]})
             client.post(f"/api/games/{g['id']}/join", json={"playerId": players[1]})
             resp = client.post(f"/api/games/{g['id']}/start")

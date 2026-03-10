@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
@@ -10,7 +9,7 @@ class Player(db.Model):
     """Persistent player accounts with lifetime stats."""
     __tablename__ = "players"
 
-    playerId = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     displayName = db.Column(db.String(80), unique=True, nullable=False)
     createdAt = db.Column(
         db.String(30),
@@ -26,7 +25,8 @@ class Player(db.Model):
 
     def to_dict(self):
         return {
-            "playerId": self.playerId,
+            "player_id": self.player_id,
+            "playerId": self.player_id,
             "displayName": self.displayName,
             "createdAt": self.createdAt,
             "totalGames": self.totalGames,
@@ -41,10 +41,10 @@ class Game(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
-    grid_size = db.Column(db.Integer, nullable=False, default=6)
+    grid_size = db.Column(db.Integer, nullable=False, default=8)
     status = db.Column(db.String(20), nullable=False, default="waiting")
-    current_turn_player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
-    winner_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
+    current_turn_player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=True)
+    winner_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=True)
     created_at = db.Column(
         db.String(30),
         nullable=False,
@@ -54,12 +54,11 @@ class Game(db.Model):
     game_players = db.relationship("GamePlayer", back_populates="game", lazy=True)
     board_cells = db.relationship("BoardCell", back_populates="game", lazy=True)
     moves = db.relationship("Move", back_populates="game", lazy=True, order_by="Move.id")
-    current_turn_player = db.relationship("Player", foreign_keys=[current_turn_player_id])
-    winner = db.relationship("Player", foreign_keys=[winner_id])
 
     def to_dict(self):
         return {
             "id": self.id,
+            "game_id": self.id,
             "grid_size": self.grid_size,
             "status": self.status,
             "current_turn_player_id": self.current_turn_player_id,
@@ -73,7 +72,7 @@ class GamePlayer(db.Model):
     __tablename__ = "game_players"
 
     gameId = db.Column(db.Integer, db.ForeignKey("games.id"), primary_key=True)
-    playerId = db.Column(db.String(36), db.ForeignKey("players.playerId"), primary_key=True)
+    playerId = db.Column(db.Integer, db.ForeignKey("players.player_id"), primary_key=True)
     turn_order = db.Column(db.Integer, nullable=False)
     is_eliminated = db.Column(db.Boolean, nullable=False, default=False)
     ships_placed = db.Column(db.Boolean, nullable=False, default=False)
@@ -97,13 +96,10 @@ class Ship(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=False)
     row = db.Column(db.Integer, nullable=False)
     col = db.Column(db.Integer, nullable=False)
     is_sunk = db.Column(db.Boolean, nullable=False, default=False)
-
-    game = db.relationship("Game")
-    player = db.relationship("Player")
 
     def to_dict(self):
         return {
@@ -125,10 +121,9 @@ class BoardCell(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
     row = db.Column(db.Integer, nullable=False)
     col = db.Column(db.Integer, nullable=False)
-    owner_player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=True)
+    owner_player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=True)
 
     game = db.relationship("Game", back_populates="board_cells")
-    owner = db.relationship("Player", foreign_keys=[owner_player_id])
 
     def to_dict(self):
         return {
@@ -146,7 +141,7 @@ class Move(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.playerId"), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=False)
     source_row = db.Column(db.Integer, nullable=False)
     source_col = db.Column(db.Integer, nullable=False)
     target_row = db.Column(db.Integer, nullable=False)
@@ -158,7 +153,6 @@ class Move(db.Model):
     )
 
     game = db.relationship("Game", back_populates="moves")
-    player = db.relationship("Player", foreign_keys=[player_id])
 
     def to_dict(self):
         return {

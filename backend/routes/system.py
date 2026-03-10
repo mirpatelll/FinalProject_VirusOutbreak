@@ -66,7 +66,7 @@ def test_place_ships(game_id):
     """Deterministic ship placement for testing.
     Requires X-Test-Mode header.
     
-    Request: { "playerId": <uuid>, "ships": [ {"row": r, "col": c}, ... ] }
+    Request: { "playerId": <int>, "ships": [ {"row": r, "col": c}, ... ] }
     """
     if not check_test_mode_header():
         return jsonify({"error": "Unauthorized"}), 403
@@ -132,7 +132,7 @@ def test_place_ships(game_id):
     }), 200
 
 
-@system_bp.route("/test/games/<int:game_id>/board/<player_id>", methods=["GET"])
+@system_bp.route("/test/games/<int:game_id>/board/<int:player_id>", methods=["GET"])
 def test_get_board(game_id, player_id):
     """Reveal board state for a specific player (test mode only).
     Requires X-Test-Mode header.
