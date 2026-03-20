@@ -98,6 +98,28 @@ def get_game(game_id):
 
 
 # ------------------------------------------------------------------
+# POST /games/<id>/start  — Start a game (transition from waiting)
+# ------------------------------------------------------------------
+@games_bp.route("/games/<int:game_id>/start", methods=["POST"])
+def start_game(game_id):
+    game = db.session.get(Game, game_id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    if game.status != "waiting":
+        return jsonify({"error": "Game already started or finished"}), 400
+
+    player_count = GamePlayer.query.filter_by(game_id=game_id).count()
+    if player_count < 2:
+        return jsonify({"error": "Need at least 2 players to start"}), 400
+
+    game.status = "placing"
+    db.session.commit()
+
+    return jsonify(game.to_dict()), 200
+
+
+# ------------------------------------------------------------------
 # POST /games/<id>/place  — Place 3 ships
 # ------------------------------------------------------------------
 @games_bp.route("/games/<int:game_id>/place", methods=["POST"])
