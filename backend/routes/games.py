@@ -180,7 +180,7 @@ def fire(game_id):
         return jsonify({"error": "Game not found"}), 404
 
     if game.status != "active":
-        return jsonify({"error": "Game is not active"}), 403
+        return jsonify({"error": "Game is not active. All players must place ships before firing."}), 400
 
     player_id = data.get("player_id") or data.get("playerId")
     row = data.get("row")
