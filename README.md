@@ -19,7 +19,7 @@ Battleship is a turn-based multiplayer territory control game built with Flask a
 - **Framework**: Flask (REST API)
 - **Database**: SQLite with SQLAlchemy ORM
 - **Testing**: pytest
-- **Server**: Local development (port 5000)
+- **Server**: Deployed On Render
 
 ### Project Structure
 ```
@@ -33,7 +33,7 @@ backend/
 │   ├── games.py          # Game endpoints
 │   ├── players.py        # Player endpoints
 │   └── system.py         # System endpoints
-├── test_phase1.py        # Test suite (34 tests)
+|
 ├── requirements.txt      # Dependencies
 └── battleship.db         # SQLite database (auto-created)
 ```
