@@ -59,7 +59,7 @@ def join_game(game_id):
         return jsonify({"error": "Game not found"}), 404
 
     if game.status != "waiting":
-        return jsonify({"error": "Game is not accepting players"}), 400
+        return jsonify({"error": "Game is not accepting players"}), 409
 
     player_id = data.get("player_id") or data.get("playerId")
     if not player_id:
@@ -71,12 +71,12 @@ def join_game(game_id):
 
     existing = GamePlayer.query.filter_by(game_id=game_id, player_id=player_id).first()
     if existing:
-        return jsonify({"error": "Player already in this game"}), 400
+        return jsonify({"error": "Player already in this game"}), 409
 
     current_count = GamePlayer.query.filter_by(game_id=game_id).count()
 
     if current_count >= game.max_players:
-        return jsonify({"error": "Game is full"}), 400
+        return jsonify({"error": "Game is full"}), 409
 
     gp = GamePlayer(game_id=game_id, player_id=player_id, turn_order=current_count)
     db.session.add(gp)
@@ -98,7 +98,7 @@ def get_game(game_id):
 
 
 # ------------------------------------------------------------------
-# POST /games/<id>/start  — Start a game (transition from waiting)
+# POST /games/<id>/start  — Start a game (transition from waiting -> placing)
 # ------------------------------------------------------------------
 @games_bp.route("/games/<int:game_id>/start", methods=["POST"])
 def start_game(game_id):
@@ -130,6 +130,10 @@ def place_ships(game_id):
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
+    # Allow placement in "waiting" or "placing" — not "active" or "finished"
+    if game.status not in ("waiting", "placing"):
+        return jsonify({"error": "Ships can only be placed before the game is active"}), 409
+
     player_id = data.get("player_id") or data.get("playerId")
     if not player_id:
         return jsonify({"error": "player_id is required"}), 400
@@ -160,7 +164,7 @@ def place_ships(game_id):
             return jsonify({"error": f"Duplicate position ({row},{col})"}), 400
         positions.add((row, col))
 
-    # Check no overlap with own existing ships (shouldn't happen since ships_placed check above)
+    # Check no overlap with own existing ships
     for row, col in positions:
         existing = Ship.query.filter_by(game_id=game_id, player_id=player_id, row=row, col=col).first()
         if existing:
@@ -174,7 +178,7 @@ def place_ships(game_id):
 
     gp.ships_placed = True
 
-    # Check if all players placed — if so, start the game
+    # Auto-start only when ALL players have placed ships
     all_gps = GamePlayer.query.filter_by(game_id=game_id).all()
     if len(all_gps) >= 2 and all(g.ships_placed for g in all_gps):
         game.status = "active"
@@ -201,8 +205,13 @@ def fire(game_id):
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
+    # Finished game — return 410 Gone
+    if game.status == "finished":
+        return jsonify({"error": "Game is already finished"}), 410
+
+    # Placing or waiting — return 409 (ships not all placed)
     if game.status != "active":
-        return jsonify({"error": "Game is not active. All players must place ships before firing."}), 400
+        return jsonify({"error": "Game is not active. All players must place ships before firing."}), 409
 
     player_id = data.get("player_id") or data.get("playerId")
     row = data.get("row")
@@ -268,13 +277,12 @@ def fire(game_id):
     )
     db.session.add(move)
 
-    # Update player stats
+    # Update player shot/hit stats immediately
     player.total_shots += 1
     if result == "hit":
         player.total_hits += 1
 
-    # Check eliminations — a player is eliminated when all 3 of their ships are sunk
-    eliminated_players = []
+    # Check eliminations — a player is eliminated when all their ships are sunk
     for other_gp in active_players:
         if other_gp.player_id == player_id or other_gp.is_eliminated:
             continue
@@ -283,7 +291,6 @@ def fire(game_id):
         ).count()
         if remaining == 0:
             other_gp.is_eliminated = True
-            eliminated_players.append(other_gp.player_id)
 
     # Refresh active players after eliminations
     active_players = [
@@ -298,7 +305,7 @@ def fire(game_id):
         if active_players:
             game.winner_id = active_players[0].player_id
 
-        # Update stats for all players
+        # Update win/loss/games_played for all players
         all_gps = GamePlayer.query.filter_by(game_id=game_id).all()
         for g in all_gps:
             p = db.session.get(Player, g.player_id)
@@ -309,7 +316,7 @@ def fire(game_id):
                 else:
                     p.losses += 1
     else:
-        # Advance turn
+        # Advance turn to next active player
         current_idx = None
         for i, ap in enumerate(active_players):
             if ap.player_id == player_id:
