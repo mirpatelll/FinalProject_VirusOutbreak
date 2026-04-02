@@ -1,4 +1,3 @@
-
 from flask import Flask
 
 from config import Config
@@ -13,6 +12,10 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     init_db(app)
+
+    @app.route("/")
+    def health():
+        return {"status": "ok"}, 200
 
     # Register without prefix
     app.register_blueprint(games_bp)
@@ -30,7 +33,4 @@ def create_app(config_class=Config):
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, port=5000)
-
-
-
    
