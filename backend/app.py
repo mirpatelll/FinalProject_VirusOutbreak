@@ -1,6 +1,3 @@
-@app.route("/")
-def health():
-    return jsonify({"status": "ok"}), 200
 
 from flask import Flask
 
