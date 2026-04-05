@@ -13,7 +13,6 @@ def _now():
 class Player(db.Model):
     __tablename__ = "players"
 
-    # UUID string primary key to match the API spec
     player_id = db.Column(db.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4()))
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -57,7 +56,8 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     grid_size = db.Column(db.Integer, nullable=False, default=8)
     max_players = db.Column(db.Integer, nullable=False, default=2)
-    status = db.Column(db.String(20), nullable=False, default="waiting")
+    # V2 spec statuses: waiting_setup | playing | finished
+    status = db.Column(db.String(20), nullable=False, default="waiting_setup")
     current_turn_index = db.Column(db.Integer, nullable=False, default=0)
     winner_id = db.Column(db.String(36), db.ForeignKey("players.player_id"), nullable=True)
     created_at = db.Column(db.String(30), nullable=False, default=_now)
@@ -69,20 +69,44 @@ class Game(db.Model):
     ships = db.relationship("Ship", back_populates="game", lazy=True)
     moves = db.relationship("Move", back_populates="game", lazy=True, order_by="Move.id")
 
+    def _current_turn_player_id(self):
+        """Return the UUID of whose turn it is, or None if not playing."""
+        if self.status != "playing":
+            return None
+        active = [gp for gp in self.game_players if not gp.is_eliminated]
+        if not active:
+            return None
+        return active[self.current_turn_index % len(active)].player_id
+
     def to_dict(self):
-        active = sum(1 for gp in self.game_players if not gp.is_eliminated)
+        total_moves = len(self.moves)
         player_ids = [gp.player_id for gp in self.game_players]
+
+        # Build per-player ships_remaining list for V2 GameDetail schema
+        players_detail = []
+        for gp in self.game_players:
+            remaining = sum(1 for s in self.ships
+                            if s.player_id == gp.player_id and not s.is_sunk)
+            players_detail.append({
+                "player_id": gp.player_id,
+                "ships_remaining": remaining,
+            })
+
         return {
+            # V2 required fields
             "game_id": self.id,
-            "gameId": self.id,
-            "id": self.id,
             "grid_size": self.grid_size,
+            "status": self.status,
+            "players": players_detail,
+            "current_turn_player_id": self._current_turn_player_id(),
+            "total_moves": total_moves,
+            # Extra convenience aliases
+            "id": self.id,
+            "gameId": self.id,
             "gridSize": self.grid_size,
             "max_players": self.max_players,
             "maxPlayers": self.max_players,
-            "status": self.status,
             "current_turn_index": self.current_turn_index,
-            "active_players": active,
             "player_ids": player_ids,
             "playerIds": player_ids,
             "winner_id": self.winner_id,
@@ -111,6 +135,7 @@ class GamePlayer(db.Model):
             "turn_order": self.turn_order,
             "is_eliminated": self.is_eliminated,
             "ships_placed": self.ships_placed,
+            "status": "joined",
         }
 
 
@@ -153,6 +178,7 @@ class Move(db.Model):
     def to_dict(self):
         return {
             "move_id": self.id,
+            "move_number": self.id,
             "game_id": self.game_id,
             "player_id": self.player_id,
             "row": self.row,
