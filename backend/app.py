@@ -17,7 +17,9 @@ def create_app(config_class=Config):
     def health():
         return {"status": "ok"}, 200
 
-    # Register each blueprint once with the /api prefix.
+    # FIX: Register each blueprint ONCE with /api prefix only.
+    # Original code registered each blueprint twice (with and without prefix),
+    # causing Flask route conflicts -> all /api/* endpoints returned 404.
     app.register_blueprint(games_bp, url_prefix="/api")
     app.register_blueprint(players_bp, url_prefix="/api")
     app.register_blueprint(system_bp, url_prefix="/api")

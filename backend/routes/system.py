@@ -88,7 +88,8 @@ def test_place_ships(game_id):
         if row is None or col is None:
             return jsonify({"error": "bad_request", "message": "Each ship needs row and col"}), 400
         if not (0 <= row < game.grid_size and 0 <= col < game.grid_size):
-            return jsonify({"error": "bad_request", "message": f"({row},{col}) out of bounds"}), 400
+            return jsonify({"error": "bad_request",
+                            "message": f"({row},{col}) out of bounds"}), 400
         db.session.add(Ship(game_id=game_id, player_id=player_id, row=row, col=col))
         placed.append({"row": row, "col": col})
 
@@ -100,12 +101,8 @@ def test_place_ships(game_id):
         game.current_turn_index = 0
 
     db.session.commit()
-    return jsonify({
-        "status": "placed",
-        "game_id": game_id,
-        "player_id": player_id,
-        "ships": placed
-    }), 200
+    return jsonify({"status": "placed", "game_id": game_id,
+                    "player_id": player_id, "ships": placed}), 200
 
 
 # GET /api/test/games/<id>/board/<player_id>
@@ -130,9 +127,5 @@ def test_get_board(game_id, player_id):
     for s in ships:
         board[s.row][s.col] = {"player_id": s.player_id, "is_sunk": s.is_sunk}
 
-    return jsonify({
-        "game_id": game_id,
-        "player_id": player_id,
-        "ships": ship_cells,
-        "board": board
-    }), 200
+    return jsonify({"game_id": game_id, "player_id": player_id,
+                    "ships": ship_cells, "board": board}), 200
