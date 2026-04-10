@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
@@ -13,8 +12,7 @@ def _now():
 class Player(db.Model):
     __tablename__ = "players"
 
-    player_id = db.Column(db.String(36), primary_key=True,
-                          default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     created_at = db.Column(db.String(30), nullable=False, default=_now)
     games_played = db.Column(db.Integer, nullable=False, default=0)
@@ -28,23 +26,28 @@ class Player(db.Model):
     def stats_dict(self):
         accuracy = 0.0
         if self.total_shots > 0:
-            accuracy = round(self.total_hits / self.total_shots, 3)
+            accuracy = round(self.total_hits / self.total_shots, 4)
         return {
             "player_id": self.player_id,
             "playerId": self.player_id,
+            "id": self.player_id,
             "username": self.username,
             "playerName": self.username,
             "displayName": self.username,
+            "name": self.username,
             "created_at": self.created_at,
             "games_played": self.games_played,
+            "games": self.games_played,
             "totalGames": self.games_played,
             "wins": self.wins,
             "totalWins": self.wins,
             "losses": self.losses,
             "totalLosses": self.losses,
             "total_shots": self.total_shots,
+            "shots": self.total_shots,
             "totalShots": self.total_shots,
             "total_hits": self.total_hits,
+            "hits": self.total_hits,
             "totalHits": self.total_hits,
             "accuracy": accuracy,
         }
@@ -56,10 +59,9 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     grid_size = db.Column(db.Integer, nullable=False, default=8)
     max_players = db.Column(db.Integer, nullable=False, default=2)
-    # V2 spec statuses: waiting_setup | playing | finished
     status = db.Column(db.String(20), nullable=False, default="waiting_setup")
     current_turn_index = db.Column(db.Integer, nullable=False, default=0)
-    winner_id = db.Column(db.String(36), db.ForeignKey("players.player_id"), nullable=True)
+    winner_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=True)
     created_at = db.Column(db.String(30), nullable=False, default=_now)
 
     game_players = db.relationship(
@@ -70,8 +72,7 @@ class Game(db.Model):
     moves = db.relationship("Move", back_populates="game", lazy=True, order_by="Move.id")
 
     def _current_turn_player_id(self):
-        """Return the UUID of whose turn it is, or None if not playing."""
-        if self.status != "playing":
+        if self.status not in ("playing", "active"):
             return None
         active = [gp for gp in self.game_players if not gp.is_eliminated]
         if not active:
@@ -81,8 +82,8 @@ class Game(db.Model):
     def to_dict(self):
         total_moves = len(self.moves)
         player_ids = [gp.player_id for gp in self.game_players]
+        active_count = sum(1 for gp in self.game_players if not gp.is_eliminated)
 
-        # Build per-player ships_remaining list for V2 GameDetail schema
         players_detail = []
         for gp in self.game_players:
             remaining = sum(1 for s in self.ships
@@ -93,20 +94,20 @@ class Game(db.Model):
             })
 
         return {
-            # V2 required fields
             "game_id": self.id,
+            "id": self.id,
+            "gameId": self.id,
             "grid_size": self.grid_size,
+            "gridSize": self.grid_size,
             "status": self.status,
             "players": players_detail,
             "current_turn_player_id": self._current_turn_player_id(),
             "total_moves": total_moves,
-            # Extra convenience aliases
-            "id": self.id,
-            "gameId": self.id,
-            "gridSize": self.grid_size,
+            "totalMoves": total_moves,
             "max_players": self.max_players,
             "maxPlayers": self.max_players,
             "current_turn_index": self.current_turn_index,
+            "active_players": active_count,
             "player_ids": player_ids,
             "playerIds": player_ids,
             "winner_id": self.winner_id,
@@ -120,7 +121,7 @@ class GamePlayer(db.Model):
     __tablename__ = "game_players"
 
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), primary_key=True)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.player_id"), primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), primary_key=True)
     turn_order = db.Column(db.Integer, nullable=False)
     is_eliminated = db.Column(db.Boolean, nullable=False, default=False)
     ships_placed = db.Column(db.Boolean, nullable=False, default=False)
@@ -144,7 +145,7 @@ class Ship(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.player_id"), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=False)
     row = db.Column(db.Integer, nullable=False)
     col = db.Column(db.Integer, nullable=False)
     is_sunk = db.Column(db.Boolean, nullable=False, default=False)
@@ -167,7 +168,7 @@ class Move(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False)
-    player_id = db.Column(db.String(36), db.ForeignKey("players.player_id"), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey("players.player_id"), nullable=False)
     row = db.Column(db.Integer, nullable=False)
     col = db.Column(db.Integer, nullable=False)
     result = db.Column(db.String(10), nullable=False)

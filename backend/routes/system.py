@@ -10,7 +10,7 @@ def _check_auth():
     return pw == current_app.config.get("TEST_PASSWORD", "clemson-test-2026")
 
 
-# POST /api/reset
+# POST /reset
 @system_bp.route("/reset", methods=["POST"])
 def reset():
     db.drop_all()
@@ -18,23 +18,24 @@ def reset():
     return jsonify({"status": "reset"}), 200
 
 
-# GET /api/health
+# GET /health
 @system_bp.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
 
 
-# GET /api/version
+# GET /version
 @system_bp.route("/version", methods=["GET"])
 def version():
     return jsonify({"api_version": "2.3.0", "spec_version": "2.3"}), 200
 
 
-# POST /api/test/games/<id>/restart
+# POST /test/games/<id>/restart
 @system_bp.route("/test/games/<int:game_id>/restart", methods=["POST"])
 def restart_game(game_id):
     if not _check_auth():
-        return jsonify({"error": "forbidden", "message": "Invalid test password"}), 403
+        return jsonify({"error": "forbidden",
+                        "message": "Forbidden: invalid or missing security header"}), 403
 
     game = db.session.get(Game, game_id)
     if not game:
@@ -55,11 +56,12 @@ def restart_game(game_id):
     return jsonify({"status": "reset", "game_id": game_id}), 200
 
 
-# POST /api/test/games/<id>/ships
+# POST /test/games/<id>/ships
 @system_bp.route("/test/games/<int:game_id>/ships", methods=["POST"])
 def test_place_ships(game_id):
     if not _check_auth():
-        return jsonify({"error": "forbidden", "message": "Invalid test password"}), 403
+        return jsonify({"error": "forbidden",
+                        "message": "Forbidden: invalid or missing security header"}), 403
 
     data = request.get_json(silent=True) or {}
 
@@ -68,6 +70,12 @@ def test_place_ships(game_id):
         return jsonify({"error": "not_found", "message": "Game not found"}), 404
 
     player_id = data.get("player_id") or data.get("playerId")
+    if player_id is not None:
+        try:
+            player_id = int(player_id)
+        except (ValueError, TypeError):
+            player_id = None
+
     if not player_id:
         return jsonify({"error": "bad_request", "message": "player_id is required"}), 400
 
@@ -84,9 +92,19 @@ def test_place_ships(game_id):
 
     placed = []
     for s in ships:
-        row, col = s.get("row"), s.get("col")
+        if isinstance(s, dict):
+            row, col = s.get("row"), s.get("col")
+        elif isinstance(s, (list, tuple)) and len(s) >= 2:
+            row, col = s[0], s[1]
+        else:
+            return jsonify({"error": "bad_request", "message": "Invalid ship format"}), 400
+
         if row is None or col is None:
             return jsonify({"error": "bad_request", "message": "Each ship needs row and col"}), 400
+        try:
+            row, col = int(row), int(col)
+        except (ValueError, TypeError):
+            return jsonify({"error": "bad_request", "message": "Non-integer coordinates"}), 400
         if not (0 <= row < game.grid_size and 0 <= col < game.grid_size):
             return jsonify({"error": "bad_request",
                             "message": f"({row},{col}) out of bounds"}), 400
@@ -101,15 +119,17 @@ def test_place_ships(game_id):
         game.current_turn_index = 0
 
     db.session.commit()
-    return jsonify({"status": "placed", "game_id": game_id,
+    return jsonify({"status": "placed", "message": "ok",
+                    "game_id": game_id,
                     "player_id": player_id, "ships": placed}), 200
 
 
-# GET /api/test/games/<id>/board/<player_id>
-@system_bp.route("/test/games/<int:game_id>/board/<player_id>", methods=["GET"])
+# GET /test/games/<id>/board/<player_id>
+@system_bp.route("/test/games/<int:game_id>/board/<int:player_id>", methods=["GET"])
 def test_get_board(game_id, player_id):
     if not _check_auth():
-        return jsonify({"error": "forbidden", "message": "Invalid test password"}), 403
+        return jsonify({"error": "forbidden",
+                        "message": "Forbidden: Invalid or missing X-Test-Password header"}), 403
 
     game = db.session.get(Game, game_id)
     if not game:
@@ -129,3 +149,16 @@ def test_get_board(game_id, player_id):
 
     return jsonify({"game_id": game_id, "player_id": player_id,
                     "ships": ship_cells, "board": board}), 200
+
+
+def register_system_routes(app):
+    app.register_blueprint(system_bp, url_prefix="/api")
+    # Also register without prefix
+    bp2 = Blueprint("system2", __name__)
+    bp2.add_url_rule("/reset", "reset", reset, methods=["POST"])
+    bp2.add_url_rule("/health", "health", health, methods=["GET"])
+    bp2.add_url_rule("/version", "version", version, methods=["GET"])
+    bp2.add_url_rule("/test/games/<int:game_id>/restart", "restart_game", restart_game, methods=["POST"])
+    bp2.add_url_rule("/test/games/<int:game_id>/ships", "test_place_ships", test_place_ships, methods=["POST"])
+    bp2.add_url_rule("/test/games/<int:game_id>/board/<int:player_id>", "test_get_board", test_get_board, methods=["GET"])
+    app.register_blueprint(bp2)
