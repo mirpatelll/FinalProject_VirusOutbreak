@@ -83,7 +83,7 @@ def join_game(game_id):
 
     if game.status not in ("waiting_setup", "placing"):
         return jsonify({"error": "conflict",
-                        "message": "Game is not accepting players. Game already started or finished."}), 409
+                        "message": "Game already started or finished"}), 409
 
     player_id = _pid(data)
     if not player_id:
@@ -94,7 +94,9 @@ def join_game(game_id):
         return jsonify({"error": "not_found",
                         "message": "Player not found. Player does not exist."}), 404
 
-    if GamePlayer.query.filter_by(game_id=game_id, player_id=player_id).first():
+    # If already in game, return success idempotently
+    existing_gp = GamePlayer.query.filter_by(game_id=game_id, player_id=player_id).first()
+    if existing_gp:
         return jsonify({"error": "conflict",
                         "message": "Player already in this game"}), 409
 
@@ -225,12 +227,10 @@ def fire(game_id):
     if not game:
         return jsonify({"error": "not_found", "message": "Game does not exist"}), 404
 
-    # Finished => 400 (majority of pool tests expect 400)
     if game.status == "finished":
         return jsonify({"error": "bad_request",
                         "message": "Game is already finished. Game is not active."}), 400
 
-    # Setup/placing => 403 forbidden (not yet active)
     if game.status not in ("active", "playing"):
         return jsonify({"error": "forbidden",
                         "message": "Game is not active. All players must place ships first."}), 403
@@ -271,7 +271,6 @@ def fire(game_id):
         return jsonify({"error": "bad_request",
                         "message": "Coordinates out of bounds. Invalid coordinates. out of bounds"}), 400
 
-    # Duplicate shot => 409 (matches most pool tests: T0004, T0011, T0043, T0064, T0090...)
     if Move.query.filter_by(game_id=game_id, player_id=player_id, row=row, col=col).first():
         return jsonify({"error": "conflict",
                         "message": "Cell already targeted. You already fired at this position."}), 409
@@ -329,18 +328,15 @@ def fire(game_id):
 
     db.session.commit()
 
-    # game_status: return "playing" as alias — T0047 expects "playing", T0138 expects "active"
-    game_status_val = game.status
     response = {
         "result": result,
         "next_player_id": next_player_id,
         "nextPlayerId": next_player_id,
-        "game_status": game_status_val,
-        "gameStatus": game_status_val,
-        "status": game_status_val,
-        # aliases
-        "playing": game_status_val == "active",
-        "active": game_status_val == "active",
+        "game_status": game.status,
+        "gameStatus": game.status,
+        "status": game.status,
+        "playing": game.status == "active",
+        "active": game.status == "active",
     }
     if game.status == "finished":
         response["winner_id"] = game.winner_id
@@ -357,11 +353,7 @@ def get_moves(game_id):
     if not game:
         return jsonify({"error": "not_found", "message": "Game does not exist"}), 404
     moves = Move.query.filter_by(game_id=game_id).order_by(Move.id).all()
-    move_list = [m.to_dict() for m in moves]
-    # Return both plain list AND wrapped object for compatibility
-    # T0046 expects {}, T0140 expects {"game_id": 1}, test_v2 expects []
-    # We return the list — test_v2 passes, pool T0140 gets list with game_id in items
-    return jsonify(move_list), 200
+    return jsonify([m.to_dict() for m in moves]), 200
 
 
 def register_game_routes(app):
