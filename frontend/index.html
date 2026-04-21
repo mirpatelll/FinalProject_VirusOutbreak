@@ -29,10 +29,16 @@
         <div class="login-logo">⚓</div>
         <h1>BATTLESHIP</h1>
         <p class="tagline">Sink or be sunk.</p>
-        <input id="username-input" type="text" placeholder="Enter your callsign"
-               maxlength="30" autocomplete="off" />
-        <button id="btn-login" class="primary">Enlist</button>
-        <p class="hint">Letters, numbers, and underscores only.</p>
+
+        <div class="login-field">
+          <label for="username-input">Callsign</label>
+          <input id="username-input" type="text" placeholder="Enter your callsign"
+                 maxlength="30" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <button id="btn-login" class="primary full">Continue</button>
+
+        <p class="login-sub">New callsign? We'll create your account. Returning? You'll be signed right in.</p>
       </div>
     </section>
 
@@ -85,7 +91,6 @@
         </div>
       </div>
 
-      <!-- Phase banner: shows what to do right now -->
       <div id="phase-banner" class="phase-banner hidden"></div>
 
       <div class="game-body">
@@ -130,18 +135,36 @@
       </div>
     </div>
 
-    <!-- ============================ WIN MODAL ============================ -->
+    <!-- ============================ POST-GAME / WIN MODAL ============================ -->
     <div id="win-modal" class="modal hidden">
       <div class="modal-content win-modal">
-        <h2 id="win-title">🏆 Victory!</h2>
-        <p id="win-text"></p>
-        <button id="btn-win-close" class="primary">Back to Lobby</button>
+
+        <div id="win-header">
+          <h2 id="win-title">🏆 Victory!</h2>
+          <p id="win-text"></p>
+        </div>
+
+        <!-- This game stats -->
+        <div class="postgame-section">
+          <h3 class="postgame-section-title">This Game</h3>
+          <div id="postgame-this-game" class="stats-grid-4"></div>
+        </div>
+
+        <!-- Lifetime stats -->
+        <div class="postgame-section">
+          <h3 class="postgame-section-title">Lifetime</h3>
+          <div id="postgame-lifetime" class="stats-grid-4"></div>
+        </div>
+
+        <div class="postgame-actions">
+          <button id="btn-win-close" class="primary">Back to Lobby</button>
+        </div>
+
       </div>
     </div>
 
   </main>
 
-  <!-- Toast notifications -->
   <div id="toast-container"></div>
 
   <script src="app.js"></script>

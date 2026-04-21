@@ -25,10 +25,13 @@ const state = {
   pendingPlacements: [],  // ships being placed before submission
   selectedOpponent: null, // player_id of opponent shown on right board
   pollHandle: null,
+  gameStartMoves: 0,      // move count snapshot when we entered the game
+  gameStartShots: 0,      // lifetime shots when we entered the game
+  gameStartHits: 0,       // lifetime hits when we entered the game
 };
 
 // ============================================================
-// API WRAPPER (centralized so UI never calls fetch directly)
+// API WRAPPER
 // ============================================================
 const api = {
   async request(method, path, body) {
@@ -54,24 +57,26 @@ const api = {
     }
     return data;
   },
-  createPlayer:  (username)            => api.request("POST", "/players", { username }),
-  getPlayer:     (id)                  => api.request("GET",  `/players/${id}`),
-  listGames:     ()                    => api.request("GET",  "/games"),
-  createGame:    (gridSize, maxPlayers, creatorId) =>
+  createPlayer:   (username)               => api.request("POST", "/players", { username }),
+  getPlayer:      (id)                     => api.request("GET",  `/players/${id}`),
+  listGames:      ()                       => api.request("GET",  "/games"),
+  createGame:     (gridSize, maxPlayers, creatorId) =>
     api.request("POST", "/games", { grid_size: gridSize, max_players: maxPlayers, creator_id: creatorId }),
-  getGame:       (id)                  => api.request("GET",  `/games/${id}`),
-  joinGame:      (gameId, playerId)    => api.request("POST", `/games/${gameId}/join`, { player_id: playerId }),
-  startGame:     (gameId)              => api.request("POST", `/games/${gameId}/start`),
-  placeShips:    (gameId, playerId, ships) =>
+  getGame:        (id)                     => api.request("GET",  `/games/${id}`),
+  joinGame:       (gameId, playerId)       => api.request("POST", `/games/${gameId}/join`, { player_id: playerId }),
+  startGame:      (gameId)                 => api.request("POST", `/games/${gameId}/start`),
+  placeShips:     (gameId, playerId, ships) =>
     api.request("POST", `/games/${gameId}/place`, { player_id: playerId, ships }),
-  fire:          (gameId, playerId, row, col) =>
+  fire:           (gameId, playerId, row, col) =>
     api.request("POST", `/games/${gameId}/fire`, { player_id: playerId, row, col }),
-  getMoves:      (gameId)              => api.request("GET",  `/games/${gameId}/moves`),
-  getLeaderboard:()                    => api.request("GET",  "/leaderboard"),
+  getMoves:       (gameId)                 => api.request("GET",  `/games/${gameId}/moves`),
+  getLeaderboard: ()                       => api.request("GET",  "/leaderboard"),
+  deleteGame:     (gameId, playerId)       =>
+    api.request("DELETE", `/games/${gameId}`, { player_id: playerId }),
 };
 
 // ============================================================
-// TOASTS (graceful errors, no raw JSON)
+// TOASTS
 // ============================================================
 function toast(message, type = "info") {
   const container = document.getElementById("toast-container");
@@ -109,7 +114,7 @@ function stopPolling() {
 }
 
 // ============================================================
-// LOGIN
+// LOGIN  —  username creates or retrieves existing account
 // ============================================================
 async function handleLogin() {
   const input = document.getElementById("username-input");
@@ -122,15 +127,24 @@ async function handleLogin() {
     toast("Letters, numbers, and underscores only.", "error");
     return;
   }
+
+  const btn = document.getElementById("btn-login");
+  btn.disabled = true;
+  btn.textContent = "Signing in...";
+
   try {
+    // Backend returns existing player if username already exists (201 either way)
     const player = await api.createPlayer(username);
     state.player = player;
     localStorage.setItem("battleship_player", JSON.stringify(player));
     document.getElementById("user-label").textContent = `⚓ ${player.username}`;
     showView("lobby");
-    toast(`Welcome aboard, ${player.username}.`, "success");
+    toast(`Welcome back, ${player.username}.`, "success");
   } catch (e) {
     toast(e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Continue";
   }
 }
 
@@ -170,7 +184,6 @@ async function refreshLobby() {
     renderGamesList();
     renderMyStats();
   } catch (e) {
-    // Silent fail on background poll, only show on first load
     if (!state.games.length) toast(e.message, "error");
   }
 }
@@ -183,12 +196,15 @@ function renderGamesList() {
   }
   const myId = state.player.player_id;
   container.innerHTML = state.games.map(g => {
-    const inGame = (g.player_ids || []).includes(myId);
+    const inGame      = (g.player_ids || []).includes(myId);
     const playerCount = (g.player_ids || []).length;
-    const canJoin = !inGame && (g.status === "waiting_setup" || g.status === "placing")
-                    && playerCount < g.max_players;
-    const btnLabel = inGame ? "Resume" : (canJoin ? "Join" : "View");
+    const canJoin     = !inGame
+      && (g.status === "waiting_setup" || g.status === "placing")
+      && playerCount < g.max_players;
+    const btnLabel    = inGame ? "Resume" : (canJoin ? "Join" : "View");
     const btnDisabled = !inGame && !canJoin && g.status !== "finished";
+    const canDelete   = inGame; // any player who was in this game
+
     return `
       <div class="game-card ${inGame ? "mine" : ""}">
         <div class="game-card-info">
@@ -199,11 +215,15 @@ function renderGamesList() {
             <span class="status-pill status-${g.status}">${g.status.replace("_", " ")}</span>
           </span>
         </div>
-        <button class="${inGame ? "primary" : "ghost"} small"
-                ${btnDisabled ? "disabled" : ""}
-                data-game-id="${g.id}" data-action="${inGame ? "resume" : (canJoin ? "join" : "view")}">
-          ${btnLabel}
-        </button>
+        <div class="game-card-actions">
+          <button class="${inGame ? "primary" : "ghost"} small"
+                  ${btnDisabled ? "disabled" : ""}
+                  data-game-id="${g.id}"
+                  data-action="${inGame ? "resume" : (canJoin ? "join" : "view")}">
+            ${btnLabel}
+          </button>
+          ${canDelete ? `<button class="btn-delete" data-delete-id="${g.id}">Delete</button>` : ""}
+        </div>
       </div>
     `;
   }).join("");
@@ -216,6 +236,24 @@ function renderGamesList() {
       else enterGame(gameId);
     });
   });
+
+  container.querySelectorAll("button[data-delete-id]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const gameId = parseInt(btn.dataset.deleteId, 10);
+      handleDeleteGame(gameId);
+    });
+  });
+}
+
+async function handleDeleteGame(gameId) {
+  if (!confirm(`Delete Game #${gameId}? This cannot be undone.`)) return;
+  try {
+    await api.deleteGame(gameId, state.player.player_id);
+    toast(`Game #${gameId} deleted.`, "success");
+    refreshLobby();
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 function renderMyStats() {
@@ -230,13 +268,13 @@ function renderMyStats() {
 }
 
 async function handleCreateGame() {
-  const gridSize = parseInt(document.getElementById("grid-size").value, 10);
+  const gridSize   = parseInt(document.getElementById("grid-size").value, 10);
   const maxPlayers = parseInt(document.getElementById("max-players").value, 10);
-  if (gridSize < 5 || gridSize > 15) { toast("Grid size must be 5 to 15.", "error"); return; }
+  if (gridSize < 5 || gridSize > 15)   { toast("Grid size must be 5 to 15.", "error"); return; }
   if (maxPlayers < 2 || maxPlayers > 10) { toast("Max players must be 2 to 10.", "error"); return; }
   try {
     const game = await api.createGame(gridSize, maxPlayers, state.player.player_id);
-    toast(`Game #${game.id} created. Waiting for players.`, "success");
+    toast(`Game #${game.id} created.`, "success");
     enterGame(game.id);
   } catch (e) {
     toast(e.message, "error");
@@ -257,10 +295,15 @@ async function joinGame(gameId) {
 // GAME
 // ============================================================
 async function enterGame(gameId) {
-  state.currentGame = { id: gameId };
+  // Snapshot lifetime stats so we can diff them after the game ends
+  const me = state.player;
+  state.gameStartShots = me.total_shots || 0;
+  state.gameStartHits  = me.total_hits  || 0;
+
+  state.currentGame       = { id: gameId };
   state.pendingPlacements = [];
-  state.myShips = [];
-  state.selectedOpponent = null;
+  state.myShips           = [];
+  state.selectedOpponent  = null;
   document.getElementById("game-id-label").textContent = `#${gameId}`;
   showView("game");
 }
@@ -274,16 +317,17 @@ async function refreshGame() {
     ]);
     const wasFinished = state.currentGame.status === "finished";
     state.currentGame = game;
-    state.moves = moves;
-
-    // Track my ships from move history (since backend doesn't expose them directly)
-    // We know our placements from state.myShips after we placed them.
+    state.moves       = moves;
 
     renderGameView();
 
-    // Check for game ending
     if (game.status === "finished" && !wasFinished) {
-      showWinModal(game);
+      // Fetch fresh player stats before showing modal
+      try {
+        const freshMe = await api.getPlayer(state.player.player_id);
+        state.player = { ...state.player, ...freshMe };
+      } catch (_) {}
+      showPostGameModal(game);
     }
   } catch (e) {
     toast(e.message, "error");
@@ -294,12 +338,10 @@ function renderGameView() {
   const g = state.currentGame;
   if (!g || !g.status) return;
 
-  // Status pill
   const statusEl = document.getElementById("game-status-label");
   statusEl.className = `status-pill status-${g.status}`;
   statusEl.textContent = g.status.replace("_", " ");
 
-  // Turn indicator
   const turnEl = document.getElementById("turn-label");
   turnEl.classList.remove("my-turn");
   if (g.status === "active") {
@@ -326,13 +368,10 @@ function renderGameView() {
 
 function renderPhaseBanner(g) {
   const banner = document.getElementById("phase-banner");
-  const myId = state.player.player_id;
+  const myId   = state.player.player_id;
   const inGame = (g.player_ids || []).includes(myId);
 
-  if (!inGame) {
-    banner.classList.add("hidden");
-    return;
-  }
+  if (!inGame) { banner.classList.add("hidden"); return; }
 
   if (g.status === "waiting_setup") {
     const need = g.max_players - (g.player_ids || []).length;
@@ -347,7 +386,7 @@ function renderPhaseBanner(g) {
       banner.classList.remove("hidden");
     }
   } else if (g.status === "placing") {
-    const placed = state.myShips.length;
+    const placed    = state.myShips.length;
     if (placed >= SHIPS_PER_PLAYER) {
       banner.textContent = "Ships placed. Waiting for other players...";
     } else {
@@ -387,7 +426,7 @@ async function handleConfirmPlacement() {
       state.player.player_id,
       state.pendingPlacements
     );
-    state.myShips = [...state.pendingPlacements];
+    state.myShips           = [...state.pendingPlacements];
     state.pendingPlacements = [];
     toast("Ships locked in.", "success");
     refreshGame();
@@ -401,16 +440,16 @@ async function handleConfirmPlacement() {
 // ============================================================
 function makeBoardGrid(boardEl, size) {
   boardEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-  boardEl.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+  boardEl.style.gridTemplateRows    = `repeat(${size}, 1fr)`;
   boardEl.innerHTML = "";
   const cells = [];
   for (let r = 0; r < size; r++) {
     cells[r] = [];
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.dataset.row = r;
-      cell.dataset.col = c;
+      cell.className    = "cell";
+      cell.dataset.row  = r;
+      cell.dataset.col  = c;
       boardEl.appendChild(cell);
       cells[r][c] = cell;
     }
@@ -420,22 +459,19 @@ function makeBoardGrid(boardEl, size) {
 
 function renderMyBoard(g) {
   const boardEl = document.getElementById("my-board");
-  const size = g.grid_size;
-  const cells = makeBoardGrid(boardEl, size);
-  const myId = state.player.player_id;
-  const inGame = (g.player_ids || []).includes(myId);
+  const size    = g.grid_size;
+  const cells   = makeBoardGrid(boardEl, size);
+  const myId    = state.player.player_id;
+  const inGame  = (g.player_ids || []).includes(myId);
 
-  // Show my placed ships
   state.myShips.forEach(s => {
     if (cells[s.row] && cells[s.row][s.col]) cells[s.row][s.col].classList.add("ship");
   });
 
-  // Show pending placements during placing phase
   state.pendingPlacements.forEach(s => {
     if (cells[s.row] && cells[s.row][s.col]) cells[s.row][s.col].classList.add("placement-preview");
   });
 
-  // Show opponent shots against me
   state.moves.filter(m => m.player_id !== myId).forEach(m => {
     if (!cells[m.row] || !cells[m.row][m.col]) return;
     const cell = cells[m.row][m.col];
@@ -443,7 +479,6 @@ function renderMyBoard(g) {
     cell.classList.add(m.result === "hit" ? "hit" : "miss");
   });
 
-  // If we're in placing phase and haven't placed yet, allow clicks
   if (inGame && g.status === "placing" && state.myShips.length === 0) {
     cells.forEach(row => row.forEach(cell => {
       if (cell.classList.contains("hit") || cell.classList.contains("miss")) return;
@@ -457,7 +492,6 @@ function renderMyBoard(g) {
 }
 
 function handlePlacementClick(row, col) {
-  // Toggle: if already pending, remove it
   const idx = state.pendingPlacements.findIndex(s => s.row === row && s.col === col);
   if (idx >= 0) {
     state.pendingPlacements.splice(idx, 1);
@@ -472,14 +506,13 @@ function handlePlacementClick(row, col) {
 }
 
 function renderOpponentBoard(g) {
-  const tabsEl = document.getElementById("opp-tabs");
-  const boardEl = document.getElementById("opp-board");
-  const myId = state.player.player_id;
+  const tabsEl    = document.getElementById("opp-tabs");
+  const boardEl   = document.getElementById("opp-board");
+  const myId      = state.player.player_id;
   const opponents = (g.players || []).filter(p => p.player_id !== myId);
 
-  // Tabs (only show if multiple opponents)
   if (opponents.length === 0) {
-    tabsEl.innerHTML = "";
+    tabsEl.innerHTML  = "";
     boardEl.innerHTML = `<p class="empty" style="grid-column:1/-1">No opponents yet.</p>`;
     return;
   }
@@ -513,17 +546,11 @@ function renderOpponentBoard(g) {
 
   const cells = makeBoardGrid(boardEl, g.grid_size);
 
-  // Show my shots against the selected opponent
-  // We can infer: my moves that hit cells where their ships were
-  // Backend doesn't tell us which opponent a hit was on (single hit_ship per shot),
-  // but in 2-player mode it's unambiguous. For multi-player, we approximate by
-  // marking any move I made; in 2P this is correct, in N-P this overlays all opponents.
   state.moves.filter(m => m.player_id === myId).forEach(m => {
     if (!cells[m.row] || !cells[m.row][m.col]) return;
     cells[m.row][m.col].classList.add(m.result === "hit" ? "hit" : "miss");
   });
 
-  // Allow firing if it's my turn and game is active
   const myTurn = g.status === "active" && g.current_turn_player_id === myId;
   if (myTurn) {
     cells.forEach(row => row.forEach(cell => {
@@ -572,11 +599,11 @@ function renderMoveHistory() {
 }
 
 function renderPlayersList(g) {
-  const el = document.getElementById("players-list");
+  const el      = document.getElementById("players-list");
   const players = g.players || [];
-  el.innerHTML = players.map(p => {
-    const isMe = p.player_id === state.player.player_id;
-    const isCurrent = g.current_turn_player_id === p.player_id;
+  el.innerHTML  = players.map(p => {
+    const isMe       = p.player_id === state.player.player_id;
+    const isCurrent  = g.current_turn_player_id === p.player_id;
     const eliminated = p.ships_remaining === 0;
     return `
       <div class="player-row ${isCurrent ? "current" : ""} ${eliminated ? "eliminated" : ""}">
@@ -588,18 +615,57 @@ function renderPlayersList(g) {
 }
 
 // ============================================================
-// WIN MODAL
+// POST-GAME MODAL  —  this game stats + lifetime stats
 // ============================================================
-function showWinModal(g) {
+function showPostGameModal(g) {
   const modal = document.getElementById("win-modal");
   const title = document.getElementById("win-title");
-  const text = document.getElementById("win-text");
-  const won = g.winner_id === state.player.player_id;
+  const text  = document.getElementById("win-text");
+  const won   = g.winner_id === state.player.player_id;
+
   title.textContent = won ? "🏆 Victory!" : "💀 Defeated";
-  text.textContent = won
+  text.textContent  = won
     ? `You sunk every opposing ship. Game #${g.id} is yours.`
     : `Player ${g.winner_id} wins game #${g.id}. Better luck next time.`;
+
+  // This game stats — diff against snapshot taken when we entered
+  const p             = state.player;
+  const gameShotsRaw  = (p.total_shots || 0) - state.gameStartShots;
+  const gameHitsRaw   = (p.total_hits  || 0) - state.gameStartHits;
+  const gameShots     = Math.max(0, gameShotsRaw);
+  const gameHits      = Math.max(0, gameHitsRaw);
+  const gameMisses    = Math.max(0, gameShots - gameHits);
+  const gameAccuracy  = gameShots > 0 ? Math.round((gameHits / gameShots) * 100) : 0;
+
+  document.getElementById("postgame-this-game").innerHTML = statGrid([
+    { val: gameShots,          label: "Shots"    },
+    { val: gameHits,           label: "Hits"     },
+    { val: gameMisses,         label: "Misses"   },
+    { val: `${gameAccuracy}%`, label: "Accuracy" },
+  ]);
+
+  // Lifetime stats
+  const lifetimeAcc = p.total_shots
+    ? Math.round((p.total_hits / p.total_shots) * 100)
+    : 0;
+
+  document.getElementById("postgame-lifetime").innerHTML = statGrid([
+    { val: p.wins          || 0,   label: "Wins"      },
+    { val: p.losses        || 0,   label: "Losses"    },
+    { val: p.total_shots   || 0,   label: "Shots"     },
+    { val: `${lifetimeAcc}%`,      label: "Accuracy"  },
+  ]);
+
   modal.classList.remove("hidden");
+}
+
+function statGrid(items) {
+  return items.map(item => `
+    <div class="stat-item">
+      <span class="stat-val">${item.val}</span>
+      <span class="stat-label">${item.label}</span>
+    </div>
+  `).join("");
 }
 
 // ============================================================
@@ -607,7 +673,7 @@ function showWinModal(g) {
 // ============================================================
 async function showLeaderboard() {
   const modal = document.getElementById("leaderboard-modal");
-  const body = document.getElementById("leaderboard-body");
+  const body  = document.getElementById("leaderboard-body");
   modal.classList.remove("hidden");
   body.innerHTML = `<p class="empty">Loading...</p>`;
   try {
@@ -617,10 +683,10 @@ async function showLeaderboard() {
       return;
     }
     body.innerHTML = players.map((p, i) => {
-      const rank = i + 1;
+      const rank   = i + 1;
       const podium = rank <= 3 ? `podium-${rank}` : "";
-      const acc = p.total_shots ? Math.round((p.total_hits / p.total_shots) * 100) : 0;
-      const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "";
+      const acc    = p.total_shots ? Math.round((p.total_hits / p.total_shots) * 100) : 0;
+      const medal  = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "";
       return `
         <div class="lb-row ${podium}">
           <span class="lb-rank">${medal || `#${rank}`}</span>
@@ -662,6 +728,8 @@ document.addEventListener("DOMContentLoaded", () => {
     state.currentGame = null;
     showView("lobby");
   });
+
+  // Post-game modal close
   document.getElementById("btn-win-close").addEventListener("click", () => {
     document.getElementById("win-modal").classList.add("hidden");
     state.currentGame = null;

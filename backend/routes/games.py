@@ -377,6 +377,35 @@ def leaderboard():
     return jsonify([p.stats_dict() for p in players]), 200
 
 
+# ------------------------------------------------------------------
+# DELETE /games/<id>
+# ------------------------------------------------------------------
+@games_bp.route("/games/<int:game_id>", methods=["DELETE"])
+def delete_game(game_id):
+    data = request.get_json(silent=True) or {}
+    player_id = _pid(data)
+
+    if not player_id:
+        return jsonify({"error": "bad_request", "message": "player_id is required"}), 400
+
+    game = db.session.get(Game, game_id)
+    if not game:
+        return jsonify({"error": "not_found", "message": "Game not found"}), 404
+
+    gp = GamePlayer.query.filter_by(game_id=game_id, player_id=player_id).first()
+    if not gp:
+        return jsonify({"error": "forbidden", "message": "You were not in this game"}), 403
+
+    # Delete child rows first to avoid FK constraint errors
+    Move.query.filter_by(game_id=game_id).delete()
+    Ship.query.filter_by(game_id=game_id).delete()
+    GamePlayer.query.filter_by(game_id=game_id).delete()
+    db.session.delete(game)
+    db.session.commit()
+
+    return jsonify({"deleted": True, "game_id": game_id}), 200
+
+
 def register_game_routes(app):
     app.register_blueprint(games_bp, url_prefix="/api")
     from flask import Blueprint as Bp
@@ -390,6 +419,5 @@ def register_game_routes(app):
     bp2.add_url_rule("/games/<int:game_id>/fire", "fire2", fire, methods=["POST"])
     bp2.add_url_rule("/games/<int:game_id>/moves", "get_moves2", get_moves, methods=["GET"])
     bp2.add_url_rule("/leaderboard", "leaderboard2", leaderboard, methods=["GET"])
+    bp2.add_url_rule("/games/<int:game_id>", "delete_game2", delete_game, methods=["DELETE"])
     app.register_blueprint(bp2)
-
-    

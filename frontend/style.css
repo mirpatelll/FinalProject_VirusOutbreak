@@ -123,64 +123,108 @@ button {
 }
 
 /* ============================================================
-   LOGIN
+   LOGIN  —  Apple-style card, navy/gold theme preserved
    ============================================================ */
 #view-login {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  padding: 24px;
 }
 
 .login-card {
-  background: rgba(15, 31, 58, 0.7);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(245, 197, 66, 0.2);
-  border-radius: var(--radius);
-  padding: 48px 40px;
+  background: rgba(12, 24, 46, 0.82);
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+  border: 1px solid rgba(245, 197, 66, 0.18);
+  border-radius: 20px;
+  padding: 52px 44px 44px;
   text-align: center;
-  max-width: 420px;
+  max-width: 400px;
   width: 100%;
-  box-shadow: var(--shadow);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.06) inset;
 }
 
 .login-logo {
-  font-size: 56px;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 0 20px rgba(245, 197, 66, 0.5));
+  font-size: 52px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 24px rgba(245, 197, 66, 0.55));
+  display: block;
 }
 
 .login-card h1 {
-  font-size: 32px;
-  letter-spacing: 6px;
+  font-size: 28px;
+  letter-spacing: 7px;
   color: var(--gold);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 800;
 }
 
 .tagline {
   color: var(--slate);
-  margin-bottom: 32px;
-  font-size: 14px;
-  letter-spacing: 1px;
+  margin-bottom: 36px;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
 }
 
+/* labeled field group */
+.login-field {
+  text-align: left;
+  margin-bottom: 14px;
+}
+
+.login-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 7px;
+}
+
+.login-field input,
 .login-card input {
   width: 100%;
-  padding: 14px 16px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  padding: 15px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   color: var(--cream);
   font-size: 16px;
-  margin-bottom: 16px;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  -webkit-appearance: none;
 }
-.login-card input:focus { border-color: var(--gold); }
 
-.login-card .primary { width: 100%; padding: 14px; }
+.login-field input:focus,
+.login-card input:focus {
+  border-color: var(--gold);
+  background: rgba(245, 197, 66, 0.06);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.15);
+}
 
+.login-card .primary {
+  width: 100%;
+  padding: 15px;
+  border-radius: 12px;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
+.login-sub {
+  color: rgba(138, 160, 192, 0.7);
+  font-size: 12px;
+  margin-top: 20px;
+  line-height: 1.6;
+  padding: 0 4px;
+}
+
+/* keep old .hint working if referenced anywhere */
 .hint {
   color: var(--slate);
   font-size: 12px;
@@ -682,3 +726,118 @@ button {
 }
 
 .toast.fading { animation: slideOut 0.25s ease forwards; }
+/* ============================================================
+   DELETE BUTTON  —  lobby game cards
+   ============================================================ */
+.btn-delete {
+  background: rgba(255, 90, 95, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(255, 90, 95, 0.3);
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 6px;
+}
+.btn-delete:hover {
+  background: rgba(255, 90, 95, 0.25);
+  border-color: var(--danger);
+  transform: none;
+}
+
+.game-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   POST-GAME MODAL  —  stats breakdown
+   ============================================================ */
+.win-modal {
+  text-align: center;
+  max-width: 540px;
+}
+
+#win-header {
+  margin-bottom: 28px;
+}
+
+.win-modal h2 {
+  color: var(--gold);
+  font-size: 30px;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+}
+
+.win-modal p {
+  color: var(--slate);
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.postgame-section {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.postgame-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 14px;
+}
+
+.stats-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .stats-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stats-grid-4 .stat-item {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 8px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.stats-grid-4 .stat-val {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.stats-grid-4 .stat-label {
+  font-size: 10px;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.postgame-actions {
+  margin-top: 8px;
+}
+
+.postgame-actions .primary {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+}
