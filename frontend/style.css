@@ -841,3 +841,163 @@ button {
   border-radius: 12px;
   font-size: 15px;
 }
+
+/* ============================================================
+   SNIPER STREAK BANNER
+   ============================================================ */
+#streak-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  background: rgba(90, 123, 168, 0.1);
+  border: 1px solid rgba(90, 123, 168, 0.2);
+  color: var(--slate);
+}
+
+#streak-banner.active {
+  background: linear-gradient(135deg, rgba(245, 197, 66, 0.18), rgba(245, 197, 66, 0.06));
+  border-color: rgba(245, 197, 66, 0.5);
+  color: var(--gold);
+  animation: streakPulse 0.4s ease;
+}
+
+#streak-banner.hot {
+  background: linear-gradient(135deg, rgba(230, 57, 70, 0.22), rgba(245, 197, 66, 0.1));
+  border-color: var(--hit);
+  color: #ff8b8b;
+  box-shadow: 0 0 20px rgba(230, 57, 70, 0.3);
+  animation: streakPulse 0.4s ease;
+}
+
+.streak-count {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.streak-label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+@keyframes streakPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+   PAST GAMES HISTORY  —  lobby
+   ============================================================ */
+.past-games-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.past-games-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.past-games-toggle h3 {
+  margin-bottom: 0;
+  color: var(--slate);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+}
+
+.past-games-toggle .toggle-arrow {
+  color: var(--slate);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.past-games-toggle.open .toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.past-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.past-game-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  font-size: 13px;
+  gap: 10px;
+}
+
+.past-game-row.win  { border-left-color: var(--success); }
+.past-game-row.loss { border-left-color: var(--hit); }
+
+.past-game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.past-game-id {
+  font-weight: 700;
+  color: var(--cream);
+  font-size: 13px;
+}
+
+.past-game-vs {
+  color: var(--slate);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.past-game-result {
+  font-weight: 800;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.past-game-result.win  {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
+}
+
+.past-game-result.loss {
+  background: rgba(230, 57, 70, 0.15);
+  color: #ff8b8b;
+}
+
+.past-game-acc {
+  color: var(--slate);
+  font-size: 11px;
+  text-align: right;
+  flex-shrink: 0;
+}

@@ -373,7 +373,7 @@ def list_games():
 def leaderboard():
     players = (Player.query
                .order_by(Player.wins.desc(), Player.total_hits.desc())
-               .limit(50).all())
+               .limit(5).all())
     return jsonify([p.stats_dict() for p in players]), 200
 
 
@@ -382,8 +382,16 @@ def leaderboard():
 # ------------------------------------------------------------------
 @games_bp.route("/games/<int:game_id>", methods=["DELETE"])
 def delete_game(game_id):
-    data = request.get_json(silent=True) or {}
-    player_id = _pid(data)
+    # Accept player_id from query string OR JSON body
+    player_id = request.args.get("player_id")
+    if player_id is not None:
+        try:
+            player_id = int(player_id)
+        except (ValueError, TypeError):
+            player_id = None
+    else:
+        data = request.get_json(silent=True) or {}
+        player_id = _pid(data)
 
     if not player_id:
         return jsonify({"error": "bad_request", "message": "player_id is required"}), 400
