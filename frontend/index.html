@@ -91,7 +91,6 @@
         </div>
       </div>
 
-      <!-- Spectator banner -->
       <div id="spectator-banner" class="spectator-banner hidden">
         👁 You are spectating this game — sit back and watch the battle unfold.
       </div>
@@ -118,18 +117,7 @@
         </div>
       </div>
 
-      <div class="game-footer">
-        <div class="panel">
-          <h3>Move History</h3>
-          <div id="move-history" class="move-history"><p class="empty">No moves yet.</p></div>
-        </div>
-        <div class="panel">
-          <h3>Players</h3>
-          <div id="players-list" class="players-list"></div>
-        </div>
-      </div>
-
-      <!-- Chat panel (players only) -->
+      <!-- Chat right below boards -->
       <div id="chat-panel" class="chat-panel hidden">
         <div class="chat-header">
           <h3>💬 Game Chat</h3>
@@ -140,6 +128,17 @@
         <div class="chat-input-row">
           <input id="chat-input" type="text" placeholder="Say something..." maxlength="300" autocomplete="off" />
           <button id="btn-chat-send" class="primary small">Send</button>
+        </div>
+      </div>
+
+      <div class="game-footer">
+        <div class="panel">
+          <h3>Move History</h3>
+          <div id="move-history" class="move-history"><p class="empty">No moves yet.</p></div>
+        </div>
+        <div class="panel">
+          <h3>Players</h3>
+          <div id="players-list" class="players-list"></div>
         </div>
       </div>
     </section>
@@ -170,6 +169,10 @@
     <div id="win-modal" class="modal hidden">
       <div class="modal-content win-modal">
 
+        <div class="win-modal-header">
+          <button id="btn-win-x" class="ghost win-x-btn">✕</button>
+        </div>
+
         <div id="win-header">
           <h2 id="win-title">🏆 Victory!</h2>
           <p id="win-text"></p>
@@ -185,7 +188,6 @@
           <div id="postgame-lifetime" class="stats-grid-4"></div>
         </div>
 
-        <!-- Rematch section -->
         <div id="rematch-section" class="rematch-section">
           <div id="rematch-requester-view">
             <button id="btn-rematch-request" class="primary full">⚔️ Request Rematch</button>
@@ -201,7 +203,7 @@
             </div>
           </div>
           <div id="rematch-declined-view" class="hidden">
-            <p class="rematch-status-text rematch-declined">They passed on the rematch. Good game.</p>
+            <p class="rematch-status-text rematch-declined">They passed on the rematch. Good game. 👊</p>
           </div>
           <div id="rematch-accepted-view" class="hidden">
             <p class="rematch-status-text rematch-accepted">✅ Rematch accepted! Heading into battle...</p>

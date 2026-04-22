@@ -732,3 +732,15 @@ button {
 @keyframes slideIn  { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 .toast.fading { animation: slideOut 0.25s ease forwards; }
+
+.win-modal-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -8px;
+}
+.win-x-btn {
+  padding: 4px 10px;
+  font-size: 16px;
+  opacity: 0.6;
+}
+.win-x-btn:hover { opacity: 1; }
