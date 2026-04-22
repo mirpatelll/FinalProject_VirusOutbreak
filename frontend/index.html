@@ -17,6 +17,7 @@
     <div class="user-info">
       <span id="user-label"></span>
       <button id="btn-leaderboard" class="ghost">Leaderboard</button>
+      <button class="btn-theme ghost" title="Switch to light mode">☀️</button>
       <button id="btn-logout" class="ghost">Logout</button>
     </div>
   </header>
@@ -25,6 +26,10 @@
 
     <!-- ============================ LOGIN VIEW ============================ -->
     <section id="view-login" class="view">
+      <div class="login-theme-row">
+        <span>Appearance</span>
+        <button class="btn-theme" title="Switch to light mode">☀️</button>
+      </div>
       <div class="login-card">
         <div class="login-logo">⚓</div>
         <h1>BATTLESHIP</h1>
@@ -108,7 +113,7 @@
         <div class="board-wrap">
           <h3 id="opp-title">Opponent's Board</h3>
           <div id="opp-tabs" class="opp-tabs"></div>
-          <div id="streak-banner" class="streak-banner"><span class="streak-label">Sniper Streak</span></div>
+          <div id="streak-banner"><span class="streak-label">Sniper Streak</span></div>
           <div id="opp-board" class="board"></div>
           <p class="board-legend">Click a cell to fire.</p>
         </div>
