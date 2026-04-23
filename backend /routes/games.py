@@ -68,11 +68,6 @@ def create_game():
 
     game = Game(grid_size=grid_size, max_players=max_players, status="waiting_setup")
     db.session.add(game)
-    db.session.flush()
-
-    if creator_id:
-        db.session.add(GamePlayer(game_id=game.id, player_id=creator_id, turn_order=0))
-
     db.session.commit()
     return jsonify(game.to_dict()), 201
 

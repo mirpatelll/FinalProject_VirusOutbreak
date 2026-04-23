@@ -7,7 +7,10 @@ system_bp = Blueprint("system", __name__)
 
 def _check_auth():
     pw = request.headers.get("X-Test-Password") or request.headers.get("X-Test-Mode")
-    return pw == current_app.config.get("TEST_PASSWORD", "clemson-test-2026")
+    expected = current_app.config.get("TEST_PASSWORD", "clemson-test-2026")
+    if not pw or not expected:
+        return False
+    return pw == expected
 
 
 # POST /reset  — wipe everything, reset autoincrement

@@ -38,16 +38,8 @@ def create_player():
 
     existing = Player.query.filter_by(username=username).first()
     if existing:
-        # Return 201 with the existing player — this makes the autograder's
-        # setup step succeed even when the DB wasn't reset between test groups.
-        # The duplicate-username tests (T0022, T0035 etc.) test with a username
-        # they just created in the SAME test, so they still get 409 on the
-        # second call within that test group... except we can't do both.
-        # 
-        # The autograder setup uses hardcoded username "player1" across ALL
-        # test groups. Returning 201 here fixes 110 setup failures.
-        # T0022 ("reject duplicate") will now fail — but that's 1 test vs 110.
-        return jsonify(existing.stats_dict()), 201
+        return jsonify({"error": "conflict",
+                        "message": "Username already exists"}), 409
 
     player = Player(username=username)
     db.session.add(player)
