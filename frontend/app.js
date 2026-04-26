@@ -259,12 +259,29 @@ function closeWinModal() {
 }
 
 // Normalize player objects across different server conventions
-function normalizePlayer(p) {
+function normalizePlayer(p, fallbackUsername) {
   if (!p || typeof p !== "object") return null;
+  // Some servers wrap the player in {player: {...}} or {data: {...}}
+  if (p.player && typeof p.player === "object") p = p.player;
+  if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) p = p.data;
+
   const player_id = p.player_id ?? p.playerId ?? p.id ?? p.playerld;
-  const username  = p.username ?? p.displayName ?? p.playerName ?? p.name;
+  const username  = p.username ?? p.displayName ?? p.playerName ?? p.name ?? fallbackUsername;
   if (player_id == null) return null;
-  return { ...p, player_id, username };
+  return { ...p, player_id, username: username || `Player ${player_id}` };
+}
+
+// Normalize a games-list response: some servers return a raw array,
+// others wrap in {games:[...]}, {data:[...]}, {results:[...]}, etc.
+function normalizeGamesList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (!raw || typeof raw !== "object") return [];
+  const candidates = ["games", "data", "results", "items", "open_games", "openGames"];
+  for (const k of candidates) {
+    if (Array.isArray(raw[k])) return raw[k];
+  }
+  // Last resort: if raw looks like a single game, wrap it
+  return [];
 }
 
 async function handleLogin() {
@@ -291,7 +308,7 @@ async function handleLogin() {
         throw e;
       }
     }
-    const player = normalizePlayer(raw);
+    const player = normalizePlayer(raw, username);
     if (!player) { throw new Error("Server returned an unexpected player format."); }
     state.player = player;
     state.usernameCache[player.player_id] = player.username;
@@ -314,9 +331,11 @@ function tryAutoLogin() {
   const saved = localStorage.getItem("battleship_player");
   if (!saved) return false;
   try {
-    state.player = JSON.parse(saved);
-    state.usernameCache[state.player.player_id] = state.player.username;
-    document.getElementById("user-label").textContent = `⚓ ${state.player.username}`;
+    const p = normalizePlayer(JSON.parse(saved));
+    if (!p) { localStorage.removeItem("battleship_player"); return false; }
+    state.player = p;
+    state.usernameCache[p.player_id] = p.username;
+    document.getElementById("user-label").textContent = `⚓ ${p.username}`;
     showView("lobby");
     return true;
   } catch (e) { localStorage.removeItem("battleship_player"); return false; }
@@ -324,27 +343,43 @@ function tryAutoLogin() {
 
 async function refreshLobby() {
   try {
-    const [games, me] = await Promise.all([api.listGames(), api.getPlayer(state.player.player_id)]);
+    const [gamesRaw, meRaw] = await Promise.all([
+      api.listGames().catch(() => []),
+      api.getPlayer(state.player.player_id).catch(() => null),
+    ]);
+    const games = normalizeGamesList(gamesRaw);
     state.games  = games;
-    state.player = { ...state.player, ...me };
+    if (meRaw) {
+      const me = normalizePlayer(meRaw, state.player.username);
+      if (me) state.player = { ...state.player, ...me };
+    }
     const ids = new Set();
-    games.forEach(g => (g.player_ids || []).forEach(id => ids.add(id)));
+    games.forEach(g => ((g.player_ids || g.playerIds || []).forEach(id => ids.add(id))));
     await Promise.all([...ids].map(id => resolveUsername(id)));
     renderGamesList();
     renderMyStats();
     renderPastGames();
-  } catch (e) { if (!state.games.length) toast(e.message, "error"); }
+  } catch (e) { if (e.message !== "__stale__" && !state.games.length) toast(e.message, "error"); }
 }
 
 function renderGamesList() {
   const container   = document.getElementById("games-list");
-  const activeGames = state.games.filter(g => g.status !== "finished");
+  // Normalize each game's field naming for cross-server compat
+  const games = (state.games || []).map(g => ({
+    ...g,
+    id:          g.id ?? g.game_id ?? g.gameId,
+    grid_size:   g.grid_size ?? g.gridSize ?? 8,
+    max_players: g.max_players ?? g.maxPlayers ?? 2,
+    player_ids:  g.player_ids ?? g.playerIds ?? [],
+    status:      g.status ?? "waiting_setup",
+  }));
+  const activeGames = games.filter(g => g.status !== "finished");
   if (!activeGames.length) { container.innerHTML = `<p class="empty">No open games. Create one!</p>`; return; }
   const myId = state.player.player_id;
   container.innerHTML = activeGames.map(g => {
     const inGame      = (g.player_ids || []).includes(myId);
     const playerCount = (g.player_ids || []).length;
-    const canJoin     = !inGame && (g.status === "waiting_setup" || g.status === "placing") && playerCount < g.max_players;
+    const canJoin     = !inGame && (g.status === "waiting_setup" || g.status === "placing" || g.status === "waiting") && playerCount < g.max_players;
     const canSpectate = !inGame && (g.status === "playing" || g.status === "active");
     const btnLabel    = inGame ? "Resume" : (canJoin ? "Join" : (canSpectate ? "Watch" : "View"));
     const btnDisabled = !inGame && !canJoin && !canSpectate;
@@ -354,7 +389,7 @@ function renderGamesList() {
       <div class="game-card ${inGame ? "mine" : ""}">
         <div class="game-card-info">
           <span class="game-card-id">Game #${g.id}</span>
-          <span class="game-card-meta">${g.grid_size}×${g.grid_size} • ${playerMeta} • <span class="status-pill status-${g.status}">${g.status.replace("_"," ")}</span></span>
+          <span class="game-card-meta">${g.grid_size}×${g.grid_size} • ${playerMeta} • <span class="status-pill status-${g.status}">${String(g.status).replace("_"," ")}</span></span>
         </div>
         <div class="game-card-actions">
           <button class="${inGame ? "primary" : "ghost"} small" ${btnDisabled ? "disabled" : ""}
