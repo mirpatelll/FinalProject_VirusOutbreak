@@ -4,11 +4,12 @@
 
 /* ============================================================
    SERVER CONFIGURATION (CPSC 3750 Phase 1 interoperability)
-   The grader can paste any team's API base URL to switch servers.
+   Always defaults to OUR server on page load. The grader can
+   switch with the "Join different server" button on login.
    ============================================================ */
 const DEFAULT_SERVER_URL = "https://finalproject-battleship.onrender.com/api";
 
-let API_BASE = localStorage.getItem("battleship_server") || DEFAULT_SERVER_URL;
+let API_BASE = DEFAULT_SERVER_URL;
 const POLL_INTERVAL_MS = 2000;
 
 function normalizeServerUrl(raw) {
@@ -19,8 +20,6 @@ function normalizeServerUrl(raw) {
   if (!/^https?:\/\//i.test(url)) url = "https://" + url;
   // Strip trailing slash
   url = url.replace(/\/+$/, "");
-  // Auto-append /api if not present (most teams' base URL ends in /api)
-  if (!/\/api(\/|$)/i.test(url)) url = url + "/api";
   return url;
 }
 
@@ -29,7 +28,6 @@ function setServer(rawUrl) {
   if (!url) { toast("Enter a server URL.", "error"); return; }
   if (url === API_BASE) { toast("Already on this server.", "info"); return; }
   API_BASE = url;
-  localStorage.setItem("battleship_server", url);
   // Reset everything when switching servers — different DBs, different player IDs
   localStorage.removeItem("battleship_player");
   state.player = null;
@@ -38,27 +36,47 @@ function setServer(rawUrl) {
   stopPolling();
   document.getElementById("username-input").value = "";
   toast(`Server set to ${url}. Please sign in.`, "success");
-  // Sync both inputs
-  document.querySelectorAll(".server-input").forEach(inp => { inp.value = API_BASE; });
+  updateServerStatusDisplay();
   showView("login");
 }
 
-function setupServerInputs() {
-  document.querySelectorAll(".server-input").forEach(inp => {
-    inp.value = API_BASE;
-  });
-  const handler = inputId => () => setServer(document.getElementById(inputId).value);
-  const wireEnter = inputId => e => { if (e.key === "Enter") setServer(e.target.value); };
+function resetToHomeServer() {
+  if (API_BASE === DEFAULT_SERVER_URL) { toast("Already on home server.", "info"); return; }
+  API_BASE = DEFAULT_SERVER_URL;
+  localStorage.removeItem("battleship_player");
+  state.player = null;
+  state.currentGame = null;
+  state.usernameCache = {};
+  stopPolling();
+  document.getElementById("username-input").value = "";
+  toast("Switched back to home server.", "success");
+  updateServerStatusDisplay();
+  hideServerSwitcher();
+  showView("login");
+}
 
-  const btnLogin = document.getElementById("btn-server-login");
-  const inpLogin = document.getElementById("server-input-login");
-  if (btnLogin) btnLogin.addEventListener("click", handler("server-input-login"));
-  if (inpLogin) inpLogin.addEventListener("keydown", wireEnter("server-input-login"));
+function updateServerStatusDisplay() {
+  const isHome = API_BASE === DEFAULT_SERVER_URL;
+  const label = document.getElementById("server-status-label");
+  const resetBtn = document.getElementById("btn-reset-server");
+  if (label) {
+    label.textContent = isHome
+      ? "Connected to our server (home)"
+      : `Connected to: ${API_BASE}`;
+    label.classList.toggle("server-status-away", !isHome);
+  }
+  if (resetBtn) resetBtn.classList.toggle("hidden", isHome);
+}
 
-  const btnTop = document.getElementById("btn-server-top");
-  const inpTop = document.getElementById("server-input-top");
-  if (btnTop) btnTop.addEventListener("click", handler("server-input-top"));
-  if (inpTop) inpTop.addEventListener("keydown", wireEnter("server-input-top"));
+function showServerSwitcher() {
+  document.getElementById("server-switcher-collapsed")?.classList.add("hidden");
+  document.getElementById("server-switcher-expanded")?.classList.remove("hidden");
+  setTimeout(() => document.getElementById("server-input-login")?.focus(), 0);
+}
+
+function hideServerSwitcher() {
+  document.getElementById("server-switcher-collapsed")?.classList.remove("hidden");
+  document.getElementById("server-switcher-expanded")?.classList.add("hidden");
 }
 
 const SHIP_DEFS = [
@@ -176,6 +194,15 @@ function closeWinModal() {
   showView("lobby");
 }
 
+// Normalize player objects across different server conventions
+function normalizePlayer(p) {
+  if (!p || typeof p !== "object") return null;
+  const player_id = p.player_id ?? p.playerId ?? p.id ?? p.playerld;
+  const username  = p.username ?? p.displayName ?? p.playerName ?? p.name;
+  if (player_id == null) return null;
+  return { ...p, player_id, username };
+}
+
 async function handleLogin() {
   const input    = document.getElementById("username-input");
   const username = input.value.trim();
@@ -184,7 +211,24 @@ async function handleLogin() {
   const btn = document.getElementById("btn-login");
   btn.disabled = true; btn.textContent = "Signing in...";
   try {
-    const player = await api.createPlayer(username);
+    let raw;
+    try {
+      raw = await api.createPlayer(username);
+    } catch (e) {
+      // Some servers return 409 on duplicate username — treat as login.
+      // The existing player may be in e.data, otherwise fall back to listing.
+      if (e.status === 409) {
+        if (e.data && (e.data.player_id ?? e.data.playerId ?? e.data.id) != null) {
+          raw = e.data;
+        } else {
+          throw new Error("Username taken on this server. Try a different callsign.");
+        }
+      } else {
+        throw e;
+      }
+    }
+    const player = normalizePlayer(raw);
+    if (!player) { throw new Error("Server returned an unexpected player format."); }
     state.player = player;
     state.usernameCache[player.player_id] = player.username;
     localStorage.setItem("battleship_player", JSON.stringify(player));
@@ -724,7 +768,20 @@ async function showProfile(playerId) {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadTheme();
-  setupServerInputs();
+  updateServerStatusDisplay();
+
+  // Server switcher: collapsed -> expanded
+  document.getElementById("btn-show-server-switcher")?.addEventListener("click", showServerSwitcher);
+  document.getElementById("btn-hide-server-switcher")?.addEventListener("click", hideServerSwitcher);
+  document.getElementById("btn-reset-server")?.addEventListener("click", resetToHomeServer);
+
+  // Server URL submit
+  const submitServer = () => setServer(document.getElementById("server-input-login").value);
+  document.getElementById("btn-server-login")?.addEventListener("click", submitServer);
+  document.getElementById("server-input-login")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") submitServer();
+  });
+
   document.querySelectorAll(".btn-theme").forEach(btn => btn.addEventListener("click", toggleTheme));
   document.getElementById("btn-login").addEventListener("click", handleLogin);
   document.getElementById("username-input").addEventListener("keydown", e => { if (e.key === "Enter") handleLogin(); });

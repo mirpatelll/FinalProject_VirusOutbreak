@@ -14,10 +14,6 @@
       <span class="brand-text">BATTLESHIP</span>
     </div>
     <div class="user-info">
-      <div class="server-switch topbar-server-switch">
-        <input id="server-input-top" class="server-input" type="text" placeholder="Server URL" autocomplete="off" spellcheck="false" />
-        <button id="btn-server-top" class="ghost small">Switch</button>
-      </div>
       <span id="user-label"></span>
       <button id="btn-leaderboard" class="ghost">Leaderboard</button>
       <button class="btn-theme ghost" title="Switch to light mode">☀️</button>
@@ -39,15 +35,6 @@
         <p class="tagline">Sink or be sunk.</p>
 
         <div class="login-field">
-          <label for="server-input-login">Server URL</label>
-          <div class="server-switch">
-            <input id="server-input-login" class="server-input" type="text" placeholder="https://example.com/api" autocomplete="off" spellcheck="false" />
-            <button id="btn-server-login" class="ghost small">Use</button>
-          </div>
-          <small>Paste any team's API base URL to test interoperability. Defaults to ours.</small>
-        </div>
-
-        <div class="login-field">
           <label for="username-input">Callsign</label>
           <input id="username-input" type="text" placeholder="Enter your callsign"
                  maxlength="30" autocomplete="off" spellcheck="false" />
@@ -55,11 +42,33 @@
         <button id="btn-login" class="primary full">Continue</button>
         <p class="login-sub">New callsign? We'll create your account. Returning? You'll be signed right in.</p>
 
+        <!-- Server switcher: collapsed by default, defaults to OUR server -->
+        <div id="server-switcher" class="server-switcher">
+          <p id="server-status-label" class="server-status">Connected to our server (home)</p>
+
+          <div id="server-switcher-collapsed">
+            <button id="btn-show-server-switcher" class="ghost full small">🌐 Join different server</button>
+          </div>
+
+          <div id="server-switcher-expanded" class="hidden">
+            <label for="server-input-login" class="server-label">Server URL</label>
+            <div class="server-switch">
+              <input id="server-input-login" class="server-input" type="text" placeholder="https://team-server.com/api" autocomplete="off" spellcheck="false" />
+              <button id="btn-server-login" class="primary small">Use</button>
+            </div>
+            <small>Paste the team's full API base URL (including /api or whatever prefix they use).</small>
+            <div class="server-switcher-actions">
+              <button id="btn-hide-server-switcher" class="ghost small">Cancel</button>
+              <button id="btn-reset-server" class="ghost small hidden">↩︎ Back to home server</button>
+            </div>
+          </div>
+        </div>
+
         <details class="grader-info">
           <summary>📋 How to grade this app</summary>
           <ol>
             <li><strong>Sign in</strong> with any callsign (letters, numbers, underscores). New names auto-register.</li>
-            <li><strong>Server defaults</strong> to ours. To test cross-team play, paste any team's API base URL into the field above and click "Use".</li>
+            <li><strong>By default</strong> you're connected to our server. Click <em>"Join different server"</em> below to test cross-team interoperability — paste any team's API base URL and click <em>Use</em>.</li>
             <li><strong>Create or join</strong> a game from the lobby. Grid size 5-15, max players 2-10.</li>
             <li><strong>Place your ships</strong> (4 ships: submarine, destroyer, cruiser, battleship) by clicking cells.</li>
             <li><strong>Fire</strong> by clicking your opponent's board on your turn. Hit/miss/sunk shown in real time.</li>

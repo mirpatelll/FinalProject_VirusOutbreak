@@ -745,8 +745,44 @@ button {
 }
 .win-x-btn:hover { opacity: 1; }
 /* ============================================================
-   SERVER SELECTOR + GRADER INFO
+   SERVER SWITCHER + GRADER INFO
    ============================================================ */
+.server-switcher {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border, #2a3645);
+  border-radius: 8px;
+}
+.server-status {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: var(--text-secondary, #a8b3c1);
+  text-align: center;
+}
+.server-status::before {
+  content: "● ";
+  color: #4ade80;
+}
+.server-status.server-status-away {
+  color: var(--gold, #d4a843);
+  font-weight: 600;
+  word-break: break-all;
+}
+.server-status.server-status-away::before {
+  color: var(--gold, #d4a843);
+}
+
+.server-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #a8b3c1);
+  margin-bottom: 6px;
+}
+
 .server-switch {
   display: flex;
   gap: 6px;
@@ -768,12 +804,19 @@ button {
 }
 .server-input:hover, .server-input:focus { border-color: var(--gold, #d4a843); }
 
-.topbar-server-switch {
-  max-width: 320px;
-  margin-right: 8px;
+.server-switcher-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: space-between;
 }
-.topbar-server-switch .server-input { font-size: 12px; padding: 6px 10px; }
-.topbar-server-switch .ghost.small { padding: 6px 10px; font-size: 12px; }
+.server-switcher-actions button { flex: 0 0 auto; }
+.server-switcher small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #a8b3c1);
+}
 
 .grader-info {
   margin-top: 18px;
@@ -798,3 +841,4 @@ button {
 }
 .grader-info li { margin-bottom: 4px; }
 .grader-info strong { color: var(--text-primary, #e8eef5); }
+.grader-info em { color: var(--gold, #d4a843); font-style: normal; font-weight: 600; }
