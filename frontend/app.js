@@ -23,26 +23,73 @@ function normalizeServerUrl(raw) {
   return url;
 }
 
-function setServer(rawUrl) {
+async function setServer(rawUrl) {
   const url = normalizeServerUrl(rawUrl);
   if (!url) { toast("Enter a server URL.", "error"); return; }
   if (url === API_BASE) { toast("Already on this server.", "info"); return; }
-  API_BASE = url;
-  // Reset everything when switching servers — different DBs, different player IDs
+
+  toast("Testing connection...", "info");
+  const useBtn = document.getElementById("btn-server-login");
+  if (useBtn) { useBtn.disabled = true; useBtn.textContent = "Testing..."; }
+
+  // Try the URL as-is, then with /api appended, then stripping /api,
+  // then root domain. We probe GET <base>/games as a cheap reachability test.
+  const candidates = [];
+  const stripped = url.replace(/\/+$/, "");
+  candidates.push(stripped);
+  if (!/\/api(\/|$)/i.test(stripped)) candidates.push(stripped + "/api");
+  if (/\/api$/i.test(stripped)) candidates.push(stripped.replace(/\/api$/i, ""));
+  // De-duplicate
+  const tried = [...new Set(candidates)];
+
+  let workingBase = null;
+  let lastNetworkError = false;
+  let last404 = false;
+  for (const base of tried) {
+    try {
+      const res = await fetch(`${base}/games`, { method: "GET" });
+      if (res.status === 404) { last404 = true; continue; }
+      // Any other response (200, 401, 500, etc.) means we found the right path
+      workingBase = base;
+      break;
+    } catch (_) {
+      // Network-level failure (CORS, DNS, offline)
+      lastNetworkError = true;
+    }
+  }
+
+  if (useBtn) { useBtn.disabled = false; useBtn.textContent = "Use This Server"; }
+
+  if (!workingBase) {
+    if (lastNetworkError) {
+      toast("Cannot reach that server (likely CORS or wrong host).", "error");
+    } else if (last404) {
+      toast(`No /games endpoint found at ${url}. Check the path.`, "error");
+    } else {
+      toast(`Couldn't connect to ${url}.`, "error");
+    }
+    return;
+  }
+
+  API_BASE = workingBase;
+  clearToasts();  // wipe any stale error toasts from previous server
+  // Reset state when switching servers
   localStorage.removeItem("battleship_player");
   state.player = null;
   state.currentGame = null;
   state.usernameCache = {};
   stopPolling();
   document.getElementById("username-input").value = "";
-  toast(`Server set to ${url}. Please sign in.`, "success");
+  toast(`Connected to ${workingBase}. Please sign in.`, "success");
   updateServerStatusDisplay();
+  hideServerSwitcher();
   showView("login");
 }
 
 function resetToHomeServer() {
   if (API_BASE === DEFAULT_SERVER_URL) { toast("Already on home server.", "info"); return; }
   API_BASE = DEFAULT_SERVER_URL;
+  clearToasts();
   localStorage.removeItem("battleship_player");
   state.player = null;
   state.currentGame = null;
@@ -130,13 +177,21 @@ const api = {
   async request(method, path, body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
     if (body) opts.body = JSON.stringify(body);
+    // Capture the API_BASE at request time. If it changed by the time the
+    // response comes back, the user switched servers — drop this response silently.
+    const baseAtRequestTime = API_BASE;
     let res, data;
-    try { res = await fetch(`${API_BASE}${path}`, opts); }
-    catch (e) { throw new Error("Cannot reach server."); }
+    try { res = await fetch(`${baseAtRequestTime}${path}`, opts); }
+    catch (e) {
+      if (baseAtRequestTime !== API_BASE) throw new Error("__stale__");
+      throw new Error("Cannot reach server.");
+    }
+    if (baseAtRequestTime !== API_BASE) throw new Error("__stale__");
     try { data = await res.json(); } catch (e) { data = {}; }
     if (!res.ok) {
-      const err = new Error(data.message || data.error || `Error ${res.status}`);
-      err.status = res.status; err.data = data; throw err;
+      const msg = data.message || data.error || `Error ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status; err.data = data; err.path = path; throw err;
     }
     return data;
   },
@@ -172,10 +227,15 @@ async function resolveUsername(playerId) {
 function getUsername(pid) { return state.usernameCache[pid] || `Player ${pid}`; }
 
 function toast(message, type = "info") {
+  if (message === "__stale__" || !message) return;  // suppress dropped/stale request errors
   const el = document.createElement("div");
   el.className = `toast ${type}`; el.textContent = message;
   document.getElementById("toast-container").appendChild(el);
   setTimeout(() => { el.classList.add("fading"); setTimeout(() => el.remove(), 250); }, 3500);
+}
+
+function clearToasts() {
+  document.querySelectorAll("#toast-container .toast").forEach(t => t.remove());
 }
 
 function showView(name) {
