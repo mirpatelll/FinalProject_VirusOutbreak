@@ -3,35 +3,31 @@
    ============================================================ */
 
 /* ============================================================
-   SERVER REGISTRY (CPSC 3750 Phase 1 interoperability)
-   The grader can switch the active server at any time.
+   SERVER CONFIGURATION (CPSC 3750 Phase 1 interoperability)
+   The grader can paste any team's API base URL to switch servers.
    ============================================================ */
-const SERVERS = [
-  { id: "0x02", label: "0x02 — Mir Patel & St Angelo Davis (ours)", url: "https://finalproject-battleship.onrender.com/api" },
-  { id: "0x01", label: "0x01 — Max Koon & Parker Estes",            url: "https://battleship.koon.us/api" },
-  { id: "0x03", label: "0x03 — Anthony Martino & Ian Sincoff",       url: "https://finalproject3750.onrender.com/api" },
-  { id: "0x04", label: "0x04 — Evan Racz & Truc Le",                 url: "https://webdevgroupproj.onrender.com/api" },
-  { id: "0x05", label: "0x05 — Mason Price & Shihab Abdelharim",     url: "https://cpsc3750phase2.onrender.com/api" },
-  { id: "0x06", label: "0x06 — Jude Slade & Alex Lake",              url: "https://three750final-1.onrender.com/api" },
-  { id: "0x07", label: "0x07 — Jennifer Johnson & Owen Schuyler",    url: "https://persistent-waters.onrender.com/api" },
-  { id: "0x08", label: "0x08 — Johan Zapata & Nathan Kitchens",      url: "https://p01--frontend--zm8jxh5c8bph.code.run/api" },
-  { id: "0x09", label: "0x09 — Taylor Carter & Kevin Murphy",        url: "https://lightslategray-dogfish-869967.hostingersite.com/api" },
-  { id: "0x0A", label: "0x0A — Gabriella Borjas & Anabel Thompson",  url: "https://battleship-1-qpm6.onrender.com/api" },
-  { id: "0x0B", label: "0x0B — Bryce Dickson & James Kluttz",        url: "https://cpsc.loosesocket.com/api" },
-  { id: "0x0C", label: "0x0C — Roman Pasqualone & Aryan Kapoor",     url: "https://battleship-advanced.onrender.com/api" },
-  { id: "0x0D", label: "0x0D — Pascual Sebastian & Tian Xue",        url: "https://vibe-hunter.com/battleship/api" },
-  { id: "0x0E", label: "0x0E — Jack Huber & Andrew Hwang",           url: "https://cpsc3750-battleshipproject.onrender.com/api" },
-  { id: "0x0F", label: "0x0F — Christian Johnston & Anthony Frialde",url: "https://cpsc-3750-battleship-final-project-phase2-3zol.onrender.com/api" },
-  { id: "0x10", label: "0x10 — Seth Stamper & Justin Hooker",        url: "https://projectwarship.netlify.app/api" },
-  { id: "0x11", label: "0x11 — Jade Ashley & Ayden Sabol",           url: "https://battleship-cpsc3750.onrender.com/api" },
-  { id: "0x12", label: "0x12 — Shaun Whitt & Jack Stivers",          url: "https://final-project-m5u7.onrender.com/api" },
-];
 const DEFAULT_SERVER_URL = "https://finalproject-battleship.onrender.com/api";
 
 let API_BASE = localStorage.getItem("battleship_server") || DEFAULT_SERVER_URL;
 const POLL_INTERVAL_MS = 2000;
 
-function setServer(url) {
+function normalizeServerUrl(raw) {
+  if (!raw) return null;
+  let url = raw.trim();
+  if (!url) return null;
+  // Add https:// if missing a scheme
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  // Strip trailing slash
+  url = url.replace(/\/+$/, "");
+  // Auto-append /api if not present (most teams' base URL ends in /api)
+  if (!/\/api(\/|$)/i.test(url)) url = url + "/api";
+  return url;
+}
+
+function setServer(rawUrl) {
+  const url = normalizeServerUrl(rawUrl);
+  if (!url) { toast("Enter a server URL.", "error"); return; }
+  if (url === API_BASE) { toast("Already on this server.", "info"); return; }
   API_BASE = url;
   localStorage.setItem("battleship_server", url);
   // Reset everything when switching servers — different DBs, different player IDs
@@ -41,26 +37,28 @@ function setServer(url) {
   state.usernameCache = {};
   stopPolling();
   document.getElementById("username-input").value = "";
-  toast(`Server changed. Please sign in again.`, "info");
+  toast(`Server set to ${url}. Please sign in.`, "success");
+  // Sync both inputs
+  document.querySelectorAll(".server-input").forEach(inp => { inp.value = API_BASE; });
   showView("login");
-  // Sync both selectors
-  document.querySelectorAll(".server-select").forEach(sel => { sel.value = url; });
 }
 
-function populateServerSelectors() {
-  document.querySelectorAll(".server-select").forEach(sel => {
-    sel.innerHTML = SERVERS.map(s =>
-      `<option value="${s.url}">${s.label}</option>`
-    ).join("");
-    // Add unknown server as fallback if API_BASE doesn't match
-    if (!SERVERS.some(s => s.url === API_BASE)) {
-      const opt = document.createElement("option");
-      opt.value = API_BASE; opt.textContent = `Custom: ${API_BASE}`;
-      sel.appendChild(opt);
-    }
-    sel.value = API_BASE;
-    sel.addEventListener("change", e => setServer(e.target.value));
+function setupServerInputs() {
+  document.querySelectorAll(".server-input").forEach(inp => {
+    inp.value = API_BASE;
   });
+  const handler = inputId => () => setServer(document.getElementById(inputId).value);
+  const wireEnter = inputId => e => { if (e.key === "Enter") setServer(e.target.value); };
+
+  const btnLogin = document.getElementById("btn-server-login");
+  const inpLogin = document.getElementById("server-input-login");
+  if (btnLogin) btnLogin.addEventListener("click", handler("server-input-login"));
+  if (inpLogin) inpLogin.addEventListener("keydown", wireEnter("server-input-login"));
+
+  const btnTop = document.getElementById("btn-server-top");
+  const inpTop = document.getElementById("server-input-top");
+  if (btnTop) btnTop.addEventListener("click", handler("server-input-top"));
+  if (inpTop) inpTop.addEventListener("keydown", wireEnter("server-input-top"));
 }
 
 const SHIP_DEFS = [
@@ -726,7 +724,7 @@ async function showProfile(playerId) {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadTheme();
-  populateServerSelectors();
+  setupServerInputs();
   document.querySelectorAll(".btn-theme").forEach(btn => btn.addEventListener("click", toggleTheme));
   document.getElementById("btn-login").addEventListener("click", handleLogin);
   document.getElementById("username-input").addEventListener("keydown", e => { if (e.key === "Enter") handleLogin(); });

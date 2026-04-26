@@ -14,7 +14,10 @@
       <span class="brand-text">BATTLESHIP</span>
     </div>
     <div class="user-info">
-      <select class="server-select topbar-server-select" title="Switch server"></select>
+      <div class="server-switch topbar-server-switch">
+        <input id="server-input-top" class="server-input" type="text" placeholder="Server URL" autocomplete="off" spellcheck="false" />
+        <button id="btn-server-top" class="ghost small">Switch</button>
+      </div>
       <span id="user-label"></span>
       <button id="btn-leaderboard" class="ghost">Leaderboard</button>
       <button class="btn-theme ghost" title="Switch to light mode">☀️</button>
@@ -36,9 +39,12 @@
         <p class="tagline">Sink or be sunk.</p>
 
         <div class="login-field">
-          <label for="server-select-login">Server</label>
-          <select id="server-select-login" class="server-select"></select>
-          <small>Defaults to our server (0x02). Switch to test interoperability with any team's backend.</small>
+          <label for="server-input-login">Server URL</label>
+          <div class="server-switch">
+            <input id="server-input-login" class="server-input" type="text" placeholder="https://example.com/api" autocomplete="off" spellcheck="false" />
+            <button id="btn-server-login" class="ghost small">Use</button>
+          </div>
+          <small>Paste any team's API base URL to test interoperability. Defaults to ours.</small>
         </div>
 
         <div class="login-field">
@@ -53,7 +59,7 @@
           <summary>📋 How to grade this app</summary>
           <ol>
             <li><strong>Sign in</strong> with any callsign (letters, numbers, underscores). New names auto-register.</li>
-            <li><strong>Server defaults</strong> to ours (0x02). To test cross-team play, switch with the dropdown above; the page will reload to that server.</li>
+            <li><strong>Server defaults</strong> to ours. To test cross-team play, paste any team's API base URL into the field above and click "Use".</li>
             <li><strong>Create or join</strong> a game from the lobby. Grid size 5-15, max players 2-10.</li>
             <li><strong>Place your ships</strong> (4 ships: submarine, destroyer, cruiser, battleship) by clicking cells.</li>
             <li><strong>Fire</strong> by clicking your opponent's board on your turn. Hit/miss/sunk shown in real time.</li>

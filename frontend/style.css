@@ -747,7 +747,14 @@ button {
 /* ============================================================
    SERVER SELECTOR + GRADER INFO
    ============================================================ */
-.server-select {
+.server-switch {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  width: 100%;
+}
+.server-input {
+  flex: 1;
   background: var(--panel-bg, #1a2330);
   color: var(--text-primary, #e8eef5);
   border: 1px solid var(--border, #2a3645);
@@ -755,19 +762,18 @@ button {
   padding: 8px 12px;
   font-size: 13px;
   font-family: inherit;
-  cursor: pointer;
   outline: none;
   transition: border-color 0.15s;
+  min-width: 0;
 }
-.server-select:hover, .server-select:focus { border-color: var(--gold, #d4a843); }
+.server-input:hover, .server-input:focus { border-color: var(--gold, #d4a843); }
 
-.topbar-server-select {
-  max-width: 220px;
-  text-overflow: ellipsis;
+.topbar-server-switch {
+  max-width: 320px;
   margin-right: 8px;
 }
-
-#server-select-login { width: 100%; padding: 10px 12px; font-size: 14px; }
+.topbar-server-switch .server-input { font-size: 12px; padding: 6px 10px; }
+.topbar-server-switch .ghost.small { padding: 6px 10px; font-size: 12px; }
 
 .grader-info {
   margin-top: 18px;
